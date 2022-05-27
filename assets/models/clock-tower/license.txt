@@ -1,0 +1,11 @@
+Model Information:
+* title:	Clock Tower (Big Ben)
+* source:	https://sketchfab.com/3d-models/clock-tower-big-ben-9a1c691fac774bcca4e2ba565c4c9d9b
+* author:	ManySince910 (https://sketchfab.com/noears6)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Clock Tower (Big Ben)" (https://sketchfab.com/3d-models/clock-tower-big-ben-9a1c691fac774bcca4e2ba565c4c9d9b) by ManySince910 (https://sketchfab.com/noears6) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
