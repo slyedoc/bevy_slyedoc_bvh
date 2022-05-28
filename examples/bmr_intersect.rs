@@ -169,21 +169,20 @@ fn setup(
             material: materials.add(StandardMaterial {
                 unlit: true,
                 base_color: Color::RED,
-                ..Default::default()
+                ..default()
             }),
             transform: Transform::from_scale(Vec3::splat(0.1)),
             visibility: Visibility {
                 is_visible: false,
-                ..Default::default()
             },
-            ..Default::default()
+            ..default()
         })
         .insert(PathObstaclePoint);
 
     commands.spawn_bundle(DirectionalLightBundle {
         transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0))
             .looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,

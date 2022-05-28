@@ -1,6 +1,7 @@
 use bevy::prelude::*;
+use bevy_inspector_egui::Inspectable;
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Inspectable, Clone)]
 pub struct Tri {
     pub vertex0: Vec3,
     pub vertex1: Vec3,
