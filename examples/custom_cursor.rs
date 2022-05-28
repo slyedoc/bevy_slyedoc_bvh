@@ -15,8 +15,7 @@ fn main() {
         .add_startup_system(setup_cameras)
         .add_startup_system(load_enviroment)
         .add_startup_system(load_cursor)
-        .add_system(fire_cursor_ray.before(BvhPlugin::run_raycasts))
-        .add_system(handle_cursor_ray.after(BvhPlugin::run_raycasts))
+        .add_system(update_cursor)
         .run();
 }
 
@@ -127,33 +126,45 @@ fn load_cursor(
         .insert(Name::new("Cursor"));
 }
 
-fn fire_cursor_ray(
+fn update_cursor(
     windows: Res<Windows>,
     camera_query: Query<(&GlobalTransform, &Camera), With<Camera3d>>,
-    mut raycasts: EventWriter<Raycast>
+    mut cursor: Query<(&mut Transform, &mut Visibility), With<Cursor>>,
+    query: Query<(Entity, &GlobalTransform, &Tris, &InvTrans, &Aabb, &BvhHandle)>,
+    bvh_vec: Res<BvhVec>
 ) {
+    let mut target_entity = None;
     if let Some(window) = windows.get_primary() {
         if let Some(mouse_pos) = window.cursor_position() {
             if let Ok((trans, cam)) = camera_query.get_single() {
-                raycasts.send(Raycast(Ray::from_screenspace(mouse_pos, window, cam, trans)))
+                let mut ray = Ray::from_screenspace(mouse_pos, window, cam, trans);
+                let mut t = ray.t;
+
+                for (e, _trans, tris, inv_trans, bounds, bvh_handle) in query.iter() {
+                    if ray.intersect_aabb(bounds.bmin, bounds.bmax) != 1e30f32 {
+                        let bvh = bvh_vec.get(bvh_handle);
+                        bvh.intersect(&mut ray, &tris.0, inv_trans );
+                    }
+                    // TODO: just have interset return the closest intersection
+                    // We got closer, update target
+                    if t != ray.t {
+                        target_entity = Some((e, ray));
+                        t = ray.t;
+                    }
+                }
             }
         }
     }
-}
 
-fn handle_cursor_ray(
-    mut raycast_result: EventReader<RaycastResult>,
-    mut cursor: Query<(&mut Transform, &mut Visibility), With<Cursor>>,
-) {
     // Handle hit
-    for hit in raycast_result.iter() {
-        let (mut cursor_trans, mut cursor_vis) = cursor.single_mut();
-        if let Some(_e) = hit.entity {   
-            cursor_trans.translation = hit.world_position;
-            cursor_vis.is_visible = true;
+    if let Ok((mut trans, mut vis)) = cursor.get_single_mut() {
+        if let Some((_e, ray)) = target_entity {
+            // e is the etity we hit, if we need to so something with it, send event or set resource
+            trans.translation = ray.origin + (ray.direction * ray.t);
+            vis.is_visible = true;
+        } else {
+            vis.is_visible = false;
         }
-        else {
-            cursor_vis.is_visible = false;
-        }
+
     }
 }

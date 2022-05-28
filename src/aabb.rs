@@ -1,9 +1,10 @@
 use bevy::prelude::*;
+use bevy_inspector_egui::Inspectable;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Component, Inspectable)]
 pub struct Aabb {
-    bmin: Vec3,
-    bmax: Vec3,
+    pub bmin: Vec3,
+    pub bmax: Vec3,
 }
 
 impl Default for Aabb {

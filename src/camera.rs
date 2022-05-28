@@ -46,6 +46,9 @@ pub fn render_image(
         ..Default::default()
     };
 
+    let transform = Transform::default();
+    let inv_trans = InvTrans(transform.compute_matrix().inverse());
+
     for tile in 0..6400 {
         let x = tile % 80;
         let y = tile / 80;
@@ -62,7 +65,7 @@ pub fn render_image(
                 ray.t = 1e30f32;
 
                 #[cfg(feature = "bvh")]
-                bvh.intersect(&mut ray, tris);
+                bvh.intersect(&mut ray, tris, &inv_trans);
 
                 #[cfg(feature = "brute")]
                 for t in tris {

@@ -53,10 +53,6 @@ impl Ray {
         }
     }
 
-    pub fn intersect_bvh(&mut self, bvh: &mut Bvh, triangles: &[Tri]) {
-        bvh.intersect(self, triangles);
-    }
-
     // Moller Trumbore
     // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
     pub fn intersect_triangle(&mut self, tri: &Tri) -> bool {

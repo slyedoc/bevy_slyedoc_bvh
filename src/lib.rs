@@ -12,11 +12,11 @@ use tri::*;
 mod assets;
 mod camera;
 
-use bevy::{math::vec3, prelude::*};
+use bevy::{math::vec3, prelude::*, reflect::TypeUuid};
 use std::mem::swap;
 
 pub mod prelude {
-    pub use crate::{aabb::*, assets::*, camera::*, ray::*, tri::*, Bvh, BvhPlugin, BvhInit, Tris};
+    pub use crate::{aabb::*, assets::*, camera::*, ray::*, tri::*, *};
 }
 
 const ROOT_NODE_IDX: usize = 0;
@@ -26,33 +26,132 @@ const BINS: usize = 8;
 #[derive(Component)]
 pub struct BvhInit;
 
+#[derive(Default)]
+pub struct BvhVec(Vec<Bvh>);
+
+#[derive(Component, Inspectable)]
+pub struct BvhHandle(pub usize);
+
+// TODO: should be something like assets to do this
+// Simple add only bvh manager
+impl BvhVec {
+    pub fn get(&self, id: &BvhHandle) -> &Bvh {
+        &self.0[id.0]
+    }
+
+    pub fn add(&mut self, bvh: Bvh) -> BvhHandle {
+        &self.0.push(bvh);
+        BvhHandle(self.0.len() - 1)
+    }
+}
+
+pub struct Raycast(pub Ray);
+pub struct RaycastResult {
+    pub entity: Option<Entity>,
+    pub world_position: Vec3,
+    pub distance: f32,
+}
+
 pub struct BvhPlugin;
 impl Plugin for BvhPlugin {
     fn build(&self, app: &mut App) {
-        app
+        app.add_event::<Raycast>()
+            .add_event::<RaycastResult>()
+            .init_resource::<BvhVec>()
             .register_inspectable::<Bvh>()
-            .add_system(spawn_bvh);
+            .add_system(Self::spawn_bvh)
+            .add_system(Self::update_bvh_data.after(Self::spawn_bvh))
+            .add_system(Self::run_raycasts.after(Self::update_bvh_data));;
     }
 }
 
+impl BvhPlugin {
+    pub fn spawn_bvh(
+        mut commands: Commands,
+        meshes: Res<Assets<Mesh>>,
+        query: Query<(Entity, &Handle<Mesh>), Added<BvhInit>>,
+        mut bvhs: ResMut<BvhVec>,
+    ) {
+        for (e, handle) in query.iter() {
+            let mesh = meshes.get(handle).expect("Mesh not found");
+            let tris = parse_mesh(mesh);
+            commands
+                .entity(e)
+                .insert(bvhs.add(Bvh::new(&tris)))
+                .insert(Tris(tris))
+                .insert(InvTrans(Mat4::ZERO))
+                .insert(Aabb::default())
+                .remove::<BvhInit>();
+        }
+    }
+
+    pub fn update_bvh_data(
+        mut query: Query<(&BvhHandle, &GlobalTransform, &mut InvTrans, &mut Aabb)>,
+        bvhs: Res<BvhVec>,
+    ) {
+        for (bvh_handle, trans, mut inv_trans, mut bounds) in query.iter_mut() {
+            let trans_matrix = trans.compute_matrix();
+            inv_trans.0 = trans_matrix.inverse();
+
+            // calculate world-space bounds using the new matrix
+            let root = bvhs.get(bvh_handle).nodes[0];
+            let bmin = root.aabb_min;
+            let bmax = root.aabb_max;
+            for i in 0..8 {
+                bounds.grow(trans_matrix.transform_point3(vec3(
+                    if i & 1 != 0 { bmax.x } else { bmin.x },
+                    if i & 2 != 0 { bmax.y } else { bmin.y },
+                    if i & 4 != 0 { bmax.z } else { bmin.z },
+                )));
+            }
+        }
+    }
+
+    pub fn run_raycasts(
+        query: Query<(
+            Entity,
+            &GlobalTransform,
+            &Tris,
+            &InvTrans,
+            &Aabb,
+            &BvhHandle,
+        )>,
+        bvh_vec: Res<BvhVec>,
+        mut raycasts: EventReader<Raycast>,
+        mut raycast_results: EventWriter<RaycastResult>,
+    ) {
+        for raycast in raycasts.iter() {
+            let mut target_entity = None;            
+            let mut ray = raycast.0;
+            let mut tmp_distance = ray.t;
+
+            for (e, _trans, tris, inv_trans, bounds, bvh_handle) in query.iter() {
+                //if ray.intersect_aabb(bounds.bmin, bounds.bmax) != 1e30f32 {
+                    let bvh = bvh_vec.get(bvh_handle);
+                    bvh.intersect(&mut ray, &tris.0, inv_trans);
+                //}
+                // TODO: just have interset return the closest intersection
+                // We got closer, update target
+                if tmp_distance != ray.t {
+                    target_entity = Some(e);
+                    tmp_distance = ray.t;
+                }
+            }
+
+            raycast_results.send(RaycastResult {
+                entity: if let Some(e) = target_entity { Some(e) } else { None },
+                world_position: ray.origin + (ray.direction * ray.t),
+                distance: ray.t,
+            });
+           
+        }
+    }
+}
 #[derive(Component)]
 pub struct Tris(pub Vec<Tri>);
 
-fn spawn_bvh(
-    mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
-    query: Query<(Entity, &Handle<Mesh>), Added<BvhInit>>,
-) {
-    for (e, handle) in query.iter() {
-        let mesh = meshes.get(handle).expect("Mesh not found");
-        let tris = parse_mesh(mesh);
-        commands
-            .entity(e)
-            .insert(Bvh::new(&tris))
-            .insert(Tris(tris))
-            .remove::<BvhInit>();
-    }
-}
+#[derive(Component)]
+pub struct InvTrans(pub Mat4);
 
 #[derive(Default, Debug, Clone, Inspectable, Copy)] //
 pub struct BvhNode {
@@ -73,12 +172,13 @@ impl BvhNode {
         self.tri_count as f32 * surface_area
     }
 }
-
-#[derive(Component, Inspectable)]
+#[derive(Component, Inspectable, Debug)]
 pub struct Bvh {
     pub nodes: Vec<BvhNode>,
     pub open_node: usize,
     pub triangle_indexs: Vec<usize>,
+    pub inv_transform: Mat4, // inverse transform
+    pub bounds: Aabb,        // in world space
 }
 
 impl Bvh {
@@ -87,6 +187,8 @@ impl Bvh {
             nodes: vec![BvhNode::default(); triangles.len() * 2],
             open_node: 2,
             triangle_indexs: (0..triangles.len()).collect::<Vec<_>>(),
+            inv_transform: Mat4::ZERO,
+            bounds: Aabb::default(),
         };
         let root = &mut bvh.nodes[0];
         root.left_first = 0;
@@ -184,7 +286,14 @@ impl Bvh {
         self.subdivide_node(right_child_idx as usize, triangles);
     }
 
-    pub fn intersect(&self, ray: &mut Ray, triangles: &[Tri]) {
+    pub fn intersect(&self, ray: &mut Ray, triangles: &[Tri], inv_trans: &InvTrans) {
+        // backup ray and transform original
+        let mut backupRay = ray.clone();
+
+        ray.origin = inv_trans.0.transform_point3(ray.origin);
+        ray.direction = inv_trans.0.transform_vector3(ray.direction);
+        ray.direction_inv = ray.direction.recip();
+
         let mut node = &self.nodes[ROOT_NODE_IDX];
         let mut stack = Vec::with_capacity(64);
         loop {
@@ -220,6 +329,10 @@ impl Bvh {
                 }
             }
         }
+
+        // restore ray origin and direction
+        backupRay.t = ray.t;
+        *ray = backupRay;
     }
 
     fn find_best_split_plane(&self, node: &BvhNode, triangles: &[Tri]) -> (usize, f32, f32) {

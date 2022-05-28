@@ -3,6 +3,8 @@ use bevy::{prelude::*, render::camera::Camera3d, window::PresentMode};
 use bevy_slyedoc_bvh::prelude::*;
 use helpers::*;
 
+
+// TODO: This isn't implemented yet, will come back to this once remove the Tris object
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -14,6 +16,7 @@ fn main() {
         .add_plugin(BvhPlugin)
         .add_startup_system(setup_cameras)
         .add_startup_system(load_enviroment)
+        .add_startup_system(load_clock_tower)
         .add_startup_system(load_cursor)
         .add_system(fire_cursor_ray.before(BvhPlugin::run_raycasts))
         .add_system(handle_cursor_ray.after(BvhPlugin::run_raycasts))
@@ -28,8 +31,6 @@ fn setup_cameras(
 ) {
     // For any UI we need
     commands.spawn_bundle(UiCameraBundle::default());
-    // For our 3d scene we need
-    // Notice we dont need ray casting sources
     commands
         .spawn_bundle(PerspectiveCameraBundle {
             transform: Transform::from_xyz(0.0, 2.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -37,7 +38,6 @@ fn setup_cameras(
         })
         // TODO: clean up this controller, I use it enought but its has issues with init
         .insert(CameraController::default());
-
 }
 
 fn load_enviroment(
@@ -66,41 +66,6 @@ fn load_enviroment(
     .insert(Name::new("Target"));
 
 
-    //  Yellow target
-    commands.spawn_bundle(PbrBundle {
-        transform: Transform::from_xyz(3.0, 0.0, 0.0),
-        mesh: meshes.add(Mesh::from(shape::UVSphere {
-            radius: 2.0,
-            sectors: 100,
-            stacks: 100,
-        })),
-        material: materials.add(StandardMaterial {
-            base_color: Color::YELLOW,
-            //unlit: true,
-            ..default()
-        }),
-        ..default()
-    })
-    .insert(BvhInit)
-    .insert(Name::new("Yellow Target"));
-
-    commands
-        .spawn_bundle(PbrBundle {
-            transform: Transform::from_xyz(-3.0, 0.0, 0.0),
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
-                radius: 2.0,
-                sectors: 100,
-                stacks: 100,
-            })),
-            material: materials.add(StandardMaterial {
-                base_color: Color::BLUE,
-                //unlit: true,
-                ..default()
-            }),
-            ..default()
-        })
-        .insert(BvhInit)
-        .insert(Name::new("Blue Target"));
 }
 
 fn load_cursor(
@@ -125,6 +90,20 @@ fn load_cursor(
         })
         .insert(Cursor)
         .insert(Name::new("Cursor"));
+}
+
+fn load_clock_tower(mut commands: Commands, asset_server: ResMut<AssetServer>) {
+    let clock = asset_server.load("models/clock-tower/scene.glb#Scene0");
+    commands
+        .spawn_bundle(TransformBundle {
+            local: Transform::from_xyz(0.0, 5.0, -10.0).with_scale(Vec3::splat(0.001)), // scale it down so we can see it
+            global: GlobalTransform::identity(),
+        })
+        .with_children(|parent| {
+            parent.spawn_scene(clock);
+        })
+        .insert(BvhInit)
+        .insert(Name::new("Clock Tower"));
 }
 
 fn fire_cursor_ray(
