@@ -3,6 +3,8 @@ use bevy::{prelude::*, render::camera::Camera3d, window::PresentMode};
 use bevy_slyedoc_bvh::prelude::*;
 use helpers::*;
 
+// Most likely you want the Cursor Plugin in the HelpersPlugins as a reference
+// This show how you could use the bvh data without using events, doesn't use TBAS
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -10,7 +12,8 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins)
-        .add_plugins(HelperPlugins)
+        // not cursor plugin or events in this example
+        //.add_plugins(HelperPlugins) 
         .add_plugin(BvhPlugin)
         .add_startup_system(setup_cameras)
         .add_startup_system(load_enviroment)

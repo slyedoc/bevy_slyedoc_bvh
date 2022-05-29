@@ -5,26 +5,35 @@ use crate::prelude::*;
 #[derive(Component, Inspectable, Debug)]
 pub struct Bvh {
     pub nodes: Vec<BvhNode>,
-    pub open_node: usize,
     pub triangle_indexs: Vec<usize>,
 }
 
 impl Bvh {
-
     // TODO: need far better way to get tris from bevy mesh
     pub fn new(triangles: &[Tri]) -> Bvh {
         let mut bvh = Bvh {
-            nodes: vec![BvhNode::default(); triangles.len() * 2],
-            open_node: 2,
+            nodes:  {
+                // Add root node and empty node to offset 1
+                let mut nodes = Vec::with_capacity(64);
+                nodes.push(BvhNode {
+                    left_first: 0,
+                    tri_count: triangles.len() as u32,
+                    aabb_min: Vec3::ZERO,
+                    aabb_max: Vec3::ZERO,
+                });
+                nodes.push(BvhNode {
+                    left_first: 0,
+                    tri_count: 0,
+                    aabb_min: Vec3::ZERO,
+                    aabb_max: Vec3::ZERO,
+                });
+                nodes
+            },
             triangle_indexs: (0..triangles.len()).collect::<Vec<_>>(),
         };
-        let root = &mut bvh.nodes[0];
-        root.left_first = 0;
-        root.tri_count = triangles.len() as u32;
 
         bvh.update_node_bounds(0, triangles);
         bvh.subdivide_node(0, triangles);
-
         bvh
     }
 
@@ -93,10 +102,10 @@ impl Bvh {
         }
 
         // create child nodes
-        let left_child_idx = self.open_node as u32;
-        self.open_node += 1;
-        let right_child_idx = self.open_node as u32;
-        self.open_node += 1;
+        self.nodes.push(BvhNode::default());
+        let left_child_idx =  self.nodes.len() as u32 - 1;
+        self.nodes.push(BvhNode::default());
+        let right_child_idx = self.nodes.len() as u32 - 1;
 
         self.nodes[left_child_idx as usize].left_first = self.nodes[node_idx].left_first;
         self.nodes[left_child_idx as usize].tri_count = left_count;

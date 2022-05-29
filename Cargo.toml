@@ -6,18 +6,17 @@ edition = "2021"
 [features]
 default = ["bvh", "bevy/trace"]
 bvh = []
-brute = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 bevy =  { version = "0.7.0" }
 #bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }
 bevy-inspector-egui = "0.11.0"
-image = "0.24.2"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 
 [dev-dependencies]
 # for testing
 bevy_mod_raycast = "0.4.0"
+bevy_prototype_debug_lines = { version = "0.7.1", features = ["3d"] }
 #{ git = "https://github.com/aevyrie/bevy_mod_raycast", branch = "main"}

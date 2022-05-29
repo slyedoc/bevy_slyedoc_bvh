@@ -2,6 +2,7 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
+use bevy_slyedoc_bvh::BvhStats;
 
 pub struct OverlayPlugin;
 
@@ -9,7 +10,8 @@ impl Plugin for OverlayPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(FrameTimeDiagnosticsPlugin::default())
             .add_startup_system(setup_overlay)
-            .add_system(update_fps);
+            .add_system(update_fps)
+            .add_system(update_bvh_tri_count);
     }
 }
 
@@ -17,7 +19,7 @@ impl Plugin for OverlayPlugin {
 struct FpsText;
 
 #[derive(Component)]
-struct GameStateText;
+struct TriCountText;
 
 const UI_SIZE: f32 = 30.0;
 fn setup_overlay(
@@ -26,44 +28,44 @@ fn setup_overlay(
 ) {
     let ui_font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
-    // commands
-    //     .spawn_bundle(TextBundle {
-    //         style: Style {
-    //             align_self: AlignSelf::FlexEnd,
-    //             position_type: PositionType::Absolute,
-    //             position: Rect {
-    //                 bottom: Val::Px(10.0),
-    //                 right: Val::Px(10.0),
-    //                 ..Default::default()
-    //             },
+    commands
+        .spawn_bundle(TextBundle {
+            style: Style {
+                align_self: AlignSelf::FlexEnd,
+                position_type: PositionType::Absolute,
+                position: Rect {
+                    bottom: Val::Px(10.0),
+                    right: Val::Px(10.0),
+                    ..Default::default()
+                },
 
-    //             ..Default::default()
-    //         },
-    //         text: Text {
-    //             sections: vec![
-    //                 TextSection {
-    //                     value: "Game State: ".to_string(),
-    //                     style: TextStyle {
-    //                         font: ui_font,
-    //                         font_size: UI_SIZE,
-    //                         color: Color::WHITE,
-    //                     },
-    //                 },
-    //                 TextSection {
-    //                     value: "".to_string(),
-    //                     style: TextStyle {
-    //                         font: ui_font,
-    //                         font_size: UI_SIZE,
-    //                         color: Color::GOLD,
-    //                     },
-    //                 },
-    //             ],
-    //             ..Default::default()
-    //         },
-    //         ..Default::default()
-    //     })
-    //     .insert(Name::new("GameState"))
-    //     .insert(GameStateText);
+                ..Default::default()
+            },
+            text: Text {
+                sections: vec![
+                    TextSection {
+                        value: "Tri Count: ".to_string(),
+                        style: TextStyle {
+                            font: ui_font.clone(),
+                            font_size: UI_SIZE,
+                            color: Color::WHITE,
+                        },
+                    },
+                    TextSection {
+                        value: "".to_string(),
+                        style: TextStyle {
+                            font: ui_font.clone(),
+                            font_size: UI_SIZE,
+                            color: Color::GOLD,
+                        },
+                    },
+                ],
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Name::new("Tri Count"))
+        .insert(TriCountText);
 
     // Rich text with multiple sections
     commands
@@ -125,5 +127,15 @@ fn update_fps(
                 };
             }
         }
+    }
+}
+
+fn update_bvh_tri_count(
+    mut query: Query<&mut Text, With<TriCountText>>,
+    stats: Res<BvhStats>,
+) {
+    for mut text in query.iter_mut() {
+        // Update the value of the second section
+        text.sections[1].value = stats.tri_count.to_string();
     }
 }

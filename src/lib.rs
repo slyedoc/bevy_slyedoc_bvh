@@ -1,6 +1,7 @@
 #![allow(warnings)]
-use bevy_inspector_egui::{Inspectable, RegisterInspectable};
-use image::{Rgb, RgbImage};
+use bevy_inspector_egui::{
+    plugin::InspectorWindows, Inspectable, InspectorPlugin, RegisterInspectable,
+};
 mod ray;
 use ray::*;
 mod aabb;
@@ -9,12 +10,20 @@ mod tri;
 use tri::*;
 mod assets;
 mod bvh;
-mod camera;
 use bvh::*;
-
+mod camera;
 use bevy::{
-    asset::LoadState, math::vec3, prelude::*, reflect::TypeUuid, transform::TransformSystem,
+    asset::LoadState,
+    math::{vec2, vec3},
+    prelude::*,
+    reflect::TypeUuid,
+    render::{
+        camera::{Camera3d, CameraProjection},
+        render_resource::{Extent3d, Texture, TextureDimension, TextureFormat},
+    },
+    transform::TransformSystem, utils::Instant,
 };
+use camera::*;
 use std::mem::swap;
 
 pub mod prelude {
@@ -27,11 +36,18 @@ const BINS: usize = 8;
 pub struct BvhPlugin;
 impl Plugin for BvhPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<Raycast>()
+        app.init_resource::<BvhImage>()
+            .add_event::<Raycast>()
             .add_event::<RaycastResult>()
+            //.add_plugin(InspectorPlugin::<BvhImage>::new())
+            .init_resource::<BvhImage>()
             .init_resource::<BvhVec>()
+            .init_resource::<BvhStats>()
             .register_inspectable::<Bvh>()
+            .register_inspectable::<BvhCamera>()
+            .register_inspectable::<BvhHandle>()
             .register_inspectable::<Tris>()
+            .register_inspectable::<Aabb>()
             .add_system_set_to_stage(
                 CoreStage::First,
                 SystemSet::new()
@@ -44,20 +60,40 @@ impl Plugin for BvhPlugin {
                     .after(TransformSystem::TransformPropagate)
                     .with_system(Self::update_bvh_data)
                     .with_system(Self::run_raycasts.after(Self::update_bvh_data)),
+            )
+            .add_system_set_to_stage(
+                CoreStage::PostUpdate,
+                SystemSet::new()
+                    .with_system(Self::update_camera)
+                    .with_system(Self::render_camera.after(Self::update_camera)),
             );
     }
 }
 
+#[derive(Default)]
+pub struct BvhStats {
+    pub tri_count: usize,
+}
+
 impl BvhPlugin {
-    pub fn spawn_bvh(
+    fn spawn_bvh(
         mut commands: Commands,
         meshes: Res<Assets<Mesh>>,
-        query: Query<(Entity, &Handle<Mesh>), Added<BvhInit>>,
+        query: Query<(Entity, &Handle<Mesh>), With<BvhInit>>,
         mut bvhs: ResMut<BvhVec>,
+        server: Res<AssetServer>,
+        mut stats: ResMut<BvhStats>,
     ) {
         for (e, handle) in query.iter() {
+            let loaded = server.get_load_state(handle.id);
+            // info!("loaded {:?}", loaded);
+            // if loaded != LoadState::Loaded {
+            //     continue;
+            // }
+
             let mesh = meshes.get(handle).expect("Mesh not found");
             let tris = parse_mesh(mesh);
+            stats.tri_count += tris.len();
             commands
                 .entity(e)
                 .insert(bvhs.add(Bvh::new(&tris)))
@@ -68,7 +104,7 @@ impl BvhPlugin {
         }
     }
 
-    pub fn spawn_bvh_with_children(
+    fn spawn_bvh_with_children(
         mut commands: Commands,
         meshes: Res<Assets<Mesh>>,
         query: Query<(Entity, &BvhInitWithChildren)>,
@@ -80,11 +116,10 @@ impl BvhPlugin {
         )>,
         mut bvhs: ResMut<BvhVec>,
         server: Res<AssetServer>,
+        mut stats: ResMut<BvhStats>,
     ) {
         for (root, scene) in query.iter() {
             let load_state = server.get_load_state(scene.0.id);
-            info!("{:?}", load_state);
-
             if load_state != LoadState::Loaded {
                 continue;
             }
@@ -100,6 +135,7 @@ impl BvhPlugin {
                 if let Some(h_mesh) = opt_mesh {
                     let mesh = meshes.get(h_mesh).expect("Mesh not found");
                     let tris = parse_mesh(mesh);
+                    stats.tri_count += tris.len();
                     commands
                         .entity(e)
                         .insert(bvhs.add(Bvh::new(&tris)))
@@ -109,9 +145,7 @@ impl BvhPlugin {
                 }
             }
 
-            commands
-                .entity(root)
-                .remove::<BvhInitWithChildren>();
+            commands.entity(root).remove::<BvhInitWithChildren>();
         }
     }
 
@@ -120,6 +154,7 @@ impl BvhPlugin {
         bvhs: Res<BvhVec>,
     ) {
         for (bvh_handle, trans, mut inv_trans, mut bounds) in query.iter_mut() {
+            // Update inv transfrom matrix for faster intersections
             let trans_matrix = trans.compute_matrix();
             inv_trans.0 = trans_matrix.inverse();
 
@@ -179,6 +214,71 @@ impl BvhPlugin {
             });
         }
     }
+
+    pub fn update_camera(mut camera_query: Query<(&mut BvhCamera, &GlobalTransform)>) {
+        for (mut camera, trans) in camera_query.iter_mut() {
+            camera.update(trans);
+        }
+    }
+
+    pub fn render_camera(
+        query: Query<(
+            Entity,
+            &GlobalTransform,
+            &Tris,
+            &InvTrans,
+            &Aabb,
+            &BvhHandle,
+        )>,
+        camera_query: Query<(&BvhCamera)>,
+        mut bvh_image: ResMut<BvhImage>,
+        bvh_vec: Res<BvhVec>,
+        mut images: ResMut<Assets<Image>>,
+        mut keys: ResMut<Input<KeyCode>>,
+    ) {
+        if keys.just_pressed(KeyCode::Space) {
+            let start = Instant::now();
+            let mut image = images.get_mut(bvh_image.image.clone()).unwrap();
+            let (camera) = camera_query.single();
+
+            for i in 0..(bvh_image.height * bvh_image.width) {
+                let x = i % bvh_image.width;
+                let y = i / bvh_image.width;
+
+                let u = x as f32 / bvh_image.width as f32;
+                let v = y as f32 / bvh_image.height as f32;
+                let mut ray = camera.get_ray(u, v);
+
+                let mut t = ray.t;
+                let mut target_entity = None;
+                for (e, _trans, tris, inv_trans, bounds, bvh_handle) in query.iter() {
+                    //if ray.intersect_aabb(bounds.bmin, bounds.bmax) != 1e30f32 {
+                    let bvh = bvh_vec.get(bvh_handle);
+                    bvh.intersect(&mut ray, &tris.0, &inv_trans);
+                    if t != ray.t {
+                        target_entity = Some((e, ray));
+                        t = ray.t;
+                    }
+                }
+
+                let pixel_index = ((bvh_image.height - y - 1) * bvh_image.width + x) as usize * 4;
+                if let Some((e, ray)) = target_entity {
+                    let c = 900f32 - (ray.t * 42f32);
+                    let c = c as u8;
+                    image.data[pixel_index + 0] = c;
+                    image.data[pixel_index + 1] = c;
+                    image.data[pixel_index + 2] = c;
+                    image.data[pixel_index + 3] = 255;
+                } else {
+                    image.data[pixel_index + 0] = 0;
+                    image.data[pixel_index + 1] = 0;
+                    image.data[pixel_index + 2] = 0;
+                    image.data[pixel_index + 3] = 255;
+                }
+            }
+            info!("Render time: {:?}", start.elapsed());
+        }
+    }
 }
 
 // Markers
@@ -222,19 +322,19 @@ pub struct Tris(pub Vec<Tri>);
 #[derive(Component)]
 pub struct InvTrans(pub Mat4);
 
-pub fn save_png(width: u32, height: u32, img: Vec<u8>, filename: impl Into<String>) {
-    let mut png_img = RgbImage::new(width, height);
-    for (i, pixel_data) in img.chunks(3).enumerate() {
-        png_img.put_pixel(
-            i as u32 % width,
-            i as u32 / width,
-            Rgb([pixel_data[0], pixel_data[1], pixel_data[2]]),
-        );
-    }
-    let file = filename.into();
-    png_img.save(file.clone()).unwrap();
-    println!("Saved {}", file);
-}
+// pub fn save_png(width: u32, height: u32, img: Vec<u8>, filename: impl Into<String>) {
+//     let mut png_img = RgbImage::new(width, height);
+//     for (i, pixel_data) in img.chunks(3).enumerate() {
+//         png_img.put_pixel(
+//             i as u32 % width,
+//             i as u32 / width,
+//             Rgb([pixel_data[0], pixel_data[1], pixel_data[2]]),
+//         );
+//     }
+//     let file = filename.into();
+//     png_img.save(file.clone()).unwrap();
+//     println!("Saved {}", file);
+// }
 
 pub fn parse_mesh(mesh: &Mesh) -> Vec<Tri> {
     match mesh.primitive_topology() {
