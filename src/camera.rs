@@ -6,12 +6,12 @@ use bevy::{
     utils::Instant,
 };
 use bevy_inspector_egui::Inspectable;
-use rand::{prelude::ThreadRng, Rng};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rand::prelude::*;
+use rayon::prelude::*;
 
 use crate::{
     prelude::{Aabb, Ray},
-    BvhHandle, BvhVec, InvTrans, Tris,
+    BvhHandle, BvhVec, InvTrans, Tris, BvhStats,
 };
 
 #[derive(Component, Inspectable)]
@@ -100,7 +100,29 @@ impl BvhCamera {
         }
     }
 
-    //
+   
+}
+// fn random_in_unit_disk(rng: &ThreadRng) -> Vec3 {
+//     loop {
+//         let mut rng = rand::thread_rng();
+//         let p = vec3(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);
+//         if p.length_squared() >= 1.0 {
+//             continue;
+//         }
+//         return p;
+//     }
+// }
+
+
+pub mod CameraSystem {
+    use bevy::{prelude::*, render::render_resource::{Extent3d, TextureDimension, TextureFormat}, utils::Instant};
+    use rayon::prelude::*;
+
+    use crate::{Tris, InvTrans, prelude::Aabb, BvhHandle, BvhVec, BvhStats};
+
+    use super::BvhCamera;
+
+     //
     // Camera Systems
     //
     pub fn init_camera_image(
@@ -143,94 +165,69 @@ impl BvhCamera {
         bvh_vec: Res<BvhVec>,
         mut images: ResMut<Assets<Image>>,
         mut keys: ResMut<Input<KeyCode>>,
+        mut stats: ResMut<BvhStats>,
     ) {
-        let start = Instant::now();
 
-        if let Ok(camera) = camera_query.get_single() {
-            if let Some(image) = &camera.image {
-                let mut image = images.get_mut(image).unwrap();
-                let pixel_count = camera.height * camera.width;
-                // for each pixel, find the ray it would cast from the camera
-                let results = (0..pixel_count)
-                    .into_par_iter()
-                    .map(|i| {
-                        let x = i % camera.width;
-                        let y = i / camera.width;
-                        let pixel_index = ((camera.height - y - 1) * camera.width + x) as usize * 4;
-                        let mut rng = rand::thread_rng();
-                        let mut result = Vec4::new(0.0, 0.0, 0.0, 1.0);
+        if let Ok(camera) = camera_query.get_single() && let Some(image) = &camera.image {
 
-                        for k in 0..camera.samples {
-                            let u = if camera.samples > 1 {
-                                (x as f32 + rng.gen_range(0.0..1.0)) / camera.width as f32
-                            } else {
-                                x as f32 / camera.width as f32
-                            };
+            let start = Instant::now();
+            let mut image = images.get_mut(image).unwrap();
+            let pixel_count = camera.height * camera.width;
+            // for each pixel, find the ray it would cast from the camera
 
-                            let v = if camera.samples > 1 {
-                                (y as f32 + rng.gen_range(0.0..1.0)) / camera.height as f32
-                            } else {
-                                y as f32 / camera.height as f32
-                            };
-                            let mut ray = camera.get_ray(u, v);
+            image.data.par_chunks_mut(4)
+            .enumerate()
+            .for_each(|(i, mut pixel)| {
+                let x = i as u32 % camera.width;
+                let y = i as u32 / camera.width;                
+                let mut result = Vec4::new(0.0, 0.0, 0.0, 1.0);
+                for k in 0..camera.samples {
+                    let u = //if camera.samples > 1 {
+                        //(x as f32 + rng.gen_range(0.0..1.0)) / camera.width as f32
+                    //} else {
+                        x as f32 / camera.width as f32;
+                    //};
 
-                            let mut t = ray.t;
-                            let mut target_entity = None;
-                            for (e, _trans, tris, inv_trans, bounds, bvh_handle) in query.iter() {
-                                //if ray.intersect_aabb(bounds.bmin, bounds.bmax) != 1e30f32 {
-                                let bvh = bvh_vec.get(bvh_handle);
-                                bvh.intersect(&mut ray, &tris.0, &inv_trans);
-                                if t != ray.t {
-                                    target_entity = Some((e, ray));
-                                    t = ray.t;
-                                }
-                            }
+                    let v = //if camera.samples > 1 {
+                    //    (y as f32 + rng.gen_range(0.0..1.0)) / camera.height as f32
+                    //} else {
+                        y as f32 / camera.height as f32;
+                    //};
+                    let mut ray = camera.get_ray(u, 1.0 - v);
 
-                            if let Some((e, ray)) = target_entity {
-                                let c = 900f32 - (ray.t * 42f32);
-                                let c = c as u8;
-                                let c = c as f32 / 255f32;
-                                let c = Vec4::new(c, c, c, 1.0);
-                                result += c;
-                            } else {
-                                result += Vec4::new(0.0, 0.0, 0.0, 1.0);
-                            }
+                    let mut t = ray.t;
+                    let mut target_entity = None;
+                    for (e, _trans, tris, inv_trans, bounds, bvh_handle) in query.iter() {
+                        //if ray.intersect_aabb(bounds.bmin, bounds.bmax) != 1e30f32 {
+                        let bvh = bvh_vec.get(bvh_handle);
+                        bvh.intersect(&mut ray, &tris.0, &inv_trans);
+                        if t != ray.t {
+                            target_entity = Some((e, ray));
+                            t = ray.t;
                         }
-                        result /= camera.samples as f32;
+                    }
 
-                        (
-                            pixel_index,
-                            [
-                                (result.x * 255.0) as u8,
-                                (result.y * 255.0) as u8,
-                                (result.z * 255.0) as u8,
-                                (result.w * 255.0) as u8,
-                            ],
-                        )
-                    })
-                    .collect::<Vec<_>>();
-
-                // save results, should part of the parallelized step above
-                for (i, pixel) in results.iter() {
-                    image.data[*i] = pixel[0];
-                    image.data[i + 1] = pixel[1];
-                    image.data[i + 2] = pixel[2];
-                    image.data[i + 3] = pixel[3];
+                    if let Some((e, ray)) = target_entity {
+                        let c = 900f32 - (ray.t * 42f32);
+                        let c = c as u8;
+                        let c = c as f32 / 255f32;
+                        let c = Vec4::new(c, c, c, 1.0);
+                        result += c;
+                    } else {
+                        result += Vec4::new(0.0, 0.0, 0.0, 1.0);
+                    }
                 }
-            }
-            //info!("Render time: {:?}", start.elapsed());
-        }
-        //}
-    }
-}
+                result /= camera.samples as f32;
 
-fn random_in_unit_disk(rng: &ThreadRng) -> Vec3 {
-    loop {
-        let mut rng = rand::thread_rng();
-        let p = vec3(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);
-        if p.length_squared() >= 1.0 {
-            continue;
-        }
-        return p;
+                pixel[0] = (result.x * 255.0) as u8;
+                pixel[1] = (result.x * 255.0) as u8;
+                pixel[2] = (result.x * 255.0) as u8;
+                pixel[3] = 255;
+            
+
+            });
+
+            stats.camera_time = start.elapsed();
+        }                
     }
 }

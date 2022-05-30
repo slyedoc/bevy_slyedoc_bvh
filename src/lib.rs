@@ -1,4 +1,5 @@
 #![allow(warnings)]
+#![feature(let_chains)]
 use bevy_inspector_egui::{
     plugin::InspectorWindows, Inspectable, InspectorPlugin, RegisterInspectable,
 };
@@ -28,7 +29,7 @@ use bevy::{
 };
 use camera::*;
 use rayon::prelude::*;
-use std::mem::swap;
+use std::{mem::swap, time::Duration};
 
 pub mod prelude {
     pub use crate::{aabb::*, assets::*, bvh::*, camera::*, ray::*, tri::*, *};
@@ -36,7 +37,6 @@ pub mod prelude {
 
 const ROOT_NODE_IDX: usize = 0;
 const BINS: usize = 8;
-
 
 pub struct BvhPlugin;
 impl Plugin for BvhPlugin {
@@ -68,9 +68,9 @@ impl Plugin for BvhPlugin {
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::new()
-                    .with_system(BvhCamera::init_camera_image.after(Self::update_bvh_data))
-                    .with_system(BvhCamera::update_camera.after(BvhCamera::init_camera_image))
-                    .with_system(BvhCamera::render_camera.after(BvhCamera::update_camera)),
+                    .with_system(CameraSystem::init_camera_image.after(Self::update_bvh_data))
+                    .with_system(CameraSystem::update_camera.after(CameraSystem::init_camera_image))
+                    .with_system(CameraSystem::render_camera.after(CameraSystem::update_camera)),
             );
     }
 }
@@ -78,6 +78,7 @@ impl Plugin for BvhPlugin {
 #[derive(Default)]
 pub struct BvhStats {
     pub tri_count: usize,
+    pub camera_time: Duration,
 }
 
 impl BvhPlugin {
@@ -215,7 +216,6 @@ impl BvhPlugin {
             });
         }
     }
-
 }
 
 // Markers
