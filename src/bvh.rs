@@ -2,22 +2,74 @@ use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 use crate::prelude::*;
 
-#[derive(Component, Inspectable, Debug)]
+#[derive(Default, Debug, Clone, Inspectable, Copy)]
+pub struct BvhNode {
+    pub aabb_min: Vec3,
+    pub aabb_max: Vec3,
+    pub left_first: u32,
+    pub tri_count: u32,
+}
+
+impl BvhNode {
+    pub fn is_leaf(&self) -> bool {
+        self.tri_count > 0
+    }
+
+    pub fn calculate_cost(&self) -> f32 {
+        let e = self.aabb_max - self.aabb_min; // extent of the node
+        let surface_area = e.x * e.y + e.y * e.z + e.z * e.x;
+        self.tri_count as f32 * surface_area
+    }
+}
+
+
+#[derive(Component, Default, Inspectable)]
+pub struct BvhInstance {
+    pub bvh: Handle<Bvh>,
+    pub inv_trans: Mat4,
+    pub bounds: Aabb,
+}
+
+impl BvhInstance {
+    pub fn intersect(&self, ray: &mut Ray, bvhs: &Assets<Bvh>) {
+        // backup ray and transform original
+
+        if let Some(bvh) = bvhs.get(self.bvh.clone()) {
+            let mut backupRay = ray.clone();
+
+            ray.origin = self.inv_trans.transform_point3(ray.origin);
+            ray.direction = self.inv_trans.transform_vector3(ray.direction);
+            ray.direction_inv = ray.direction.recip();
+
+            bvh.intersect(ray);
+
+            // restore ray origin and direction
+            backupRay.t = ray.t;
+            *ray = backupRay;
+        }
+    }
+}
+
+#[derive(Default, Component, Inspectable, Debug, TypeUuid)]
+#[uuid = "81299f9d-41e0-4ff0-86b7-6bef6c3f67c1"]
 pub struct Bvh {
     pub nodes: Vec<BvhNode>,
+    pub tris: Vec<Tri>,
     pub triangle_indexs: Vec<usize>,
 }
 
 impl Bvh {
     // TODO: need far better way to get tris from bevy mesh
-    pub fn new(triangles: &[Tri]) -> Bvh {
+    pub fn new(triangles: Vec<Tri>) -> Bvh {
+        let count = triangles.len() as u32;
         let mut bvh = Bvh {
+            tris: triangles,
             nodes:  {
                 // Add root node and empty node to offset 1
                 let mut nodes = Vec::with_capacity(64);
                 nodes.push(BvhNode {
                     left_first: 0,
-                    tri_count: triangles.len() as u32,
+                    tri_count: count,
                     aabb_min: Vec3::ZERO,
                     aabb_max: Vec3::ZERO,
                 });
@@ -29,11 +81,11 @@ impl Bvh {
                 });
                 nodes
             },
-            triangle_indexs: (0..triangles.len()).collect::<Vec<_>>(),
+            triangle_indexs: (0..count as usize).collect::<Vec<_>>(),
         };
 
-        bvh.update_node_bounds(0, triangles);
-        bvh.subdivide_node(0, triangles);
+        bvh.update_node_bounds(0);
+        bvh.subdivide_node(0);
         bvh
     }
 
@@ -57,13 +109,13 @@ impl Bvh {
     //     }
     // }
 
-    fn update_node_bounds(&mut self, node_idx: usize, triangles: &[Tri]) {
+    fn update_node_bounds(&mut self, node_idx: usize) {
         let node = &mut self.nodes[node_idx];
         node.aabb_min = Vec3::splat(1e30f32);
         node.aabb_max = Vec3::splat(-1e30f32);
         for i in 0..node.tri_count {
             let leaf_tri_index = self.triangle_indexs[(node.left_first + i) as usize];
-            let leaf_tri = triangles[leaf_tri_index];
+            let leaf_tri = self.tris[leaf_tri_index];
             node.aabb_min = node.aabb_min.min(leaf_tri.vertex0);
             node.aabb_min = node.aabb_min.min(leaf_tri.vertex1);
             node.aabb_min = node.aabb_min.min(leaf_tri.vertex2);
@@ -73,11 +125,11 @@ impl Bvh {
         }
     }
 
-    fn subdivide_node(&mut self, node_idx: usize, triangles: &[Tri]) {
+    fn subdivide_node(&mut self, node_idx: usize) {
         let node = &self.nodes[node_idx];
 
         // determine split axis using SAH
-        let (axis, split_pos, split_cost) = self.find_best_split_plane(node, triangles);
+        let (axis, split_pos, split_cost) = self.find_best_split_plane(node);
         let nosplit_cost = node.calculate_cost();
         if split_cost >= nosplit_cost {
             return;
@@ -87,7 +139,7 @@ impl Bvh {
         let mut i = node.left_first;
         let mut j = i + node.tri_count - 1;
         while i <= j {
-            if triangles[self.triangle_indexs[i as usize]].centroid[axis] < split_pos {
+            if self.tris[self.triangle_indexs[i as usize]].centroid[axis] < split_pos {
                 i += 1;
             } else {
                 self.triangle_indexs.swap(i as usize, j as usize);
@@ -116,28 +168,22 @@ impl Bvh {
         self.nodes[node_idx].left_first = left_child_idx;
         self.nodes[node_idx].tri_count = 0;
 
-        self.update_node_bounds(left_child_idx as usize, triangles);
-        self.update_node_bounds(right_child_idx as usize, triangles);
+        self.update_node_bounds(left_child_idx as usize);
+        self.update_node_bounds(right_child_idx as usize);
         // recurse
-        self.subdivide_node(left_child_idx as usize, triangles);
-        self.subdivide_node(right_child_idx as usize, triangles);
+        self.subdivide_node(left_child_idx as usize);
+        self.subdivide_node(right_child_idx as usize);
     }
 
-    pub fn intersect(&self, ray: &mut Ray, triangles: &[Tri], inv_trans: &InvTrans) {
+    pub fn intersect(&self, ray: &mut Ray) {
         // backup ray and transform original
-        let mut backupRay = ray.clone();
-
-        ray.origin = inv_trans.0.transform_point3(ray.origin);
-        ray.direction = inv_trans.0.transform_vector3(ray.direction);
-        ray.direction_inv = ray.direction.recip();
-
         let mut node = &self.nodes[ROOT_NODE_IDX];
         let mut stack = Vec::with_capacity(64);
         loop {
             if node.is_leaf() {
                 for i in 0..node.tri_count {
                     ray.intersect_triangle(
-                        &triangles[self.triangle_indexs[(node.left_first + i) as usize]],
+                        &self.tris[self.triangle_indexs[(node.left_first + i) as usize]],
                     );
                 }
                 if stack.is_empty() {
@@ -167,12 +213,9 @@ impl Bvh {
             }
         }
 
-        // restore ray origin and direction
-        backupRay.t = ray.t;
-        *ray = backupRay;
     }
 
-    fn find_best_split_plane(&self, node: &BvhNode, triangles: &[Tri]) -> (usize, f32, f32) {
+    fn find_best_split_plane(&self, node: &BvhNode) -> (usize, f32, f32) {
         // determine split axis using SAH
         let mut best_axis = 0;
         let mut split_pos = 0.0f32;
@@ -182,7 +225,7 @@ impl Bvh {
             let mut bounds_min = 1e30f32;
             let mut bounds_max = -1e30f32;
             for i in 0..node.tri_count {
-                let triangle = &triangles[self.triangle_indexs[(node.left_first + i) as usize]];
+                let triangle = &self.tris[self.triangle_indexs[(node.left_first + i) as usize]];
                 bounds_min = bounds_min.min(triangle.centroid[a]);
                 bounds_max = bounds_max.max(triangle.centroid[a]);
             }
@@ -193,7 +236,7 @@ impl Bvh {
             let mut bin = [Bin::default(); BINS];
             let mut scale = BINS as f32 / (bounds_max - bounds_min);
             for i in 0..node.tri_count {
-                let triangle = &triangles[self.triangle_indexs[(node.left_first + i) as usize]];
+                let triangle = &self.tris[self.triangle_indexs[(node.left_first + i) as usize]];
                 let bin_idx =
                     (BINS - 1).min(((triangle.centroid[a] - bounds_min) * scale) as usize);
                 bin[bin_idx].tri_count += 1;
@@ -235,26 +278,6 @@ impl Bvh {
             }
         }
         (best_axis, split_pos, best_cost)
-    }
-}
-
-#[derive(Default, Debug, Clone, Inspectable, Copy)]
-pub struct BvhNode {
-    pub aabb_min: Vec3,
-    pub aabb_max: Vec3,
-    pub left_first: u32,
-    pub tri_count: u32,
-}
-
-impl BvhNode {
-    pub fn is_leaf(&self) -> bool {
-        self.tri_count > 0
-    }
-
-    pub fn calculate_cost(&self) -> f32 {
-        let e = self.aabb_max - self.aabb_min; // extent of the node
-        let surface_area = e.x * e.y + e.y * e.z + e.z * e.x;
-        self.tri_count as f32 * surface_area
     }
 }
 

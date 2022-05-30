@@ -14,6 +14,9 @@ mod assets;
 mod bvh;
 use bvh::*;
 mod camera;
+mod tlas;
+use tlas::*;
+
 use bevy::{
     asset::LoadState,
     math::{vec2, vec3},
@@ -32,7 +35,7 @@ use rayon::prelude::*;
 use std::{mem::swap, time::Duration};
 
 pub mod prelude {
-    pub use crate::{aabb::*, assets::*, bvh::*, camera::*, ray::*, tri::*, *};
+    pub use crate::{aabb::*, assets::*, bvh::*, camera::*, ray::*, tlas::*, tri::*, *};
 }
 
 const ROOT_NODE_IDX: usize = 0;
@@ -44,12 +47,14 @@ impl Plugin for BvhPlugin {
         app.add_event::<Raycast>()
             .add_event::<RaycastResult>()
             //.add_plugin(InspectorPlugin::<BvhImage>::new())
-            .init_resource::<BvhVec>()
             .init_resource::<BvhStats>()
+            .add_asset::<Bvh>()
             .register_inspectable::<Bvh>()
+            .register_inspectable::<Tlas>()
+            .register_inspectable::<TlasNode>()
             .register_inspectable::<BvhCamera>()
-            .register_inspectable::<BvhHandle>()
-            .register_inspectable::<Tris>()
+            .register_inspectable::<BvhInstance>()
+            .register_inspectable::<Tri>()
             .register_inspectable::<Aabb>()
             .add_system_set_to_stage(
                 CoreStage::First,
@@ -78,6 +83,7 @@ impl Plugin for BvhPlugin {
 #[derive(Default)]
 pub struct BvhStats {
     pub tri_count: usize,
+    pub ray_count: f32,
     pub camera_time: Duration,
 }
 
@@ -85,8 +91,8 @@ impl BvhPlugin {
     fn spawn_bvh(
         mut commands: Commands,
         meshes: Res<Assets<Mesh>>,
+        mut bvhs: ResMut<Assets<Bvh>>,
         query: Query<(Entity, &Handle<Mesh>), With<BvhInit>>,
-        mut bvhs: ResMut<BvhVec>,
         server: Res<AssetServer>,
         mut stats: ResMut<BvhStats>,
     ) {
@@ -98,10 +104,10 @@ impl BvhPlugin {
 
             commands
                 .entity(e)
-                .insert(bvhs.add(Bvh::new(&tris)))
-                .insert(Tris(tris))
-                .insert(InvTrans(Mat4::ZERO))
-                .insert(Aabb::default())
+                .insert(BvhInstance {
+                    bvh: bvhs.add(Bvh::new(tris)),
+                    ..default()
+                })
                 .remove::<BvhInit>();
         }
     }
@@ -116,9 +122,9 @@ impl BvhPlugin {
             Option<&Children>,
             Option<&Handle<Mesh>>,
         )>,
-        mut bvhs: ResMut<BvhVec>,
         server: Res<AssetServer>,
         mut stats: ResMut<BvhStats>,
+        mut bvhs: ResMut<Assets<Bvh>>,
     ) {
         for (root, scene) in query.iter() {
             let load_state = server.get_load_state(scene.0.id);
@@ -140,10 +146,10 @@ impl BvhPlugin {
                     stats.tri_count += tris.len();
                     commands
                         .entity(e)
-                        .insert(bvhs.add(Bvh::new(&tris)))
-                        .insert(Tris(tris))
-                        .insert(InvTrans(Mat4::ZERO))
-                        .insert(Aabb::default());
+                        .insert(BvhInstance {
+                            bvh: bvhs.add(Bvh::new(tris)),
+                            ..default()
+                        });
                 }
             }
 
@@ -152,20 +158,21 @@ impl BvhPlugin {
     }
 
     pub fn update_bvh_data(
-        mut query: Query<(&BvhHandle, &GlobalTransform, &mut InvTrans, &mut Aabb)>,
-        bvhs: Res<BvhVec>,
+        mut query: Query<(&mut BvhInstance, &GlobalTransform)>,
+        bvhs: Res<Assets<Bvh>>,
     ) {
-        for (bvh_handle, trans, mut inv_trans, mut bounds) in query.iter_mut() {
+        for (mut bvh_inst, trans) in query.iter_mut() {
             // Update inv transfrom matrix for faster intersections
             let trans_matrix = trans.compute_matrix();
-            inv_trans.0 = trans_matrix.inverse();
+            bvh_inst.inv_trans = trans_matrix.inverse();
 
             // calculate world-space bounds using the new matrix
-            let root = bvhs.get(bvh_handle).nodes[0];
+            let bvh = bvhs.get(bvh_inst.bvh.clone()).unwrap();
+            let root = bvh.nodes[0];
             let bmin = root.aabb_min;
             let bmax = root.aabb_max;
             for i in 0..8 {
-                bounds.grow(trans_matrix.transform_point3(vec3(
+                bvh_inst.bounds.grow(trans_matrix.transform_point3(vec3(
                     if i & 1 != 0 { bmax.x } else { bmin.x },
                     if i & 2 != 0 { bmax.y } else { bmin.y },
                     if i & 4 != 0 { bmax.z } else { bmin.z },
@@ -178,24 +185,20 @@ impl BvhPlugin {
         query: Query<(
             Entity,
             &GlobalTransform,
-            &Tris,
-            &InvTrans,
-            &Aabb,
-            &BvhHandle,
+            &BvhInstance,
         )>,
-        bvh_vec: Res<BvhVec>,
         mut raycasts: EventReader<Raycast>,
         mut raycast_results: EventWriter<RaycastResult>,
+        bvhs: Res<Assets<Bvh>>,
     ) {
         for raycast in raycasts.iter() {
             let mut target_entity = None;
             let mut ray = raycast.0;
             let mut tmp_distance = ray.t;
 
-            for (e, _trans, tris, inv_trans, bounds, bvh_handle) in query.iter() {
+            for (e, _trans, bvh_inst) in query.iter() {
                 //if ray.intersect_aabb(bounds.bmin, bounds.bmax) != 1e30f32 {
-                let bvh = bvh_vec.get(bvh_handle);
-                bvh.intersect(&mut ray, &tris.0, inv_trans);
+                bvh_inst.intersect(&mut ray, &bvhs);
                 //}
                 // TODO: just have interset return the closest intersection
                 // We got closer, update target
@@ -227,24 +230,10 @@ pub struct BvhInit;
 #[derive(Component)]
 pub struct BvhInitWithChildren(pub Handle<Scene>);
 
-#[derive(Default)]
-pub struct BvhVec(Vec<Bvh>);
 
-#[derive(Component, Inspectable)]
-pub struct BvhHandle(pub usize);
 
 // TODO: should be something like assets to do this
-// Simple add only bvh manager
-impl BvhVec {
-    pub fn get(&self, id: &BvhHandle) -> &Bvh {
-        &self.0[id.0]
-    }
-
-    pub fn add(&mut self, bvh: Bvh) -> BvhHandle {
-        &self.0.push(bvh);
-        BvhHandle(self.0.len() - 1)
-    }
-}
+// TODO: will move into tlas
 
 pub struct Raycast(pub Ray);
 pub struct RaycastResult {
@@ -252,26 +241,6 @@ pub struct RaycastResult {
     pub world_position: Vec3,
     pub distance: f32,
 }
-
-#[derive(Component, Inspectable)]
-pub struct Tris(pub Vec<Tri>);
-
-#[derive(Component)]
-pub struct InvTrans(pub Mat4);
-
-// pub fn save_png(width: u32, height: u32, img: Vec<u8>, filename: impl Into<String>) {
-//     let mut png_img = RgbImage::new(width, height);
-//     for (i, pixel_data) in img.chunks(3).enumerate() {
-//         png_img.put_pixel(
-//             i as u32 % width,
-//             i as u32 / width,
-//             Rgb([pixel_data[0], pixel_data[1], pixel_data[2]]),
-//         );
-//     }
-//     let file = filename.into();
-//     png_img.save(file.clone()).unwrap();
-//     println!("Saved {}", file);
-// }
 
 pub fn parse_mesh(mesh: &Mesh) -> Vec<Tri> {
     match mesh.primitive_topology() {
@@ -307,14 +276,5 @@ pub fn parse_mesh(mesh: &Mesh) -> Vec<Tri> {
             triangles
         }
         _ => todo!(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
     }
 }
