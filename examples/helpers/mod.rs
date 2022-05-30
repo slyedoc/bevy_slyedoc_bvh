@@ -5,7 +5,7 @@ mod overlay;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_inspector_egui::WorldInspectorPlugin;
-use bevy_slyedoc_bvh::{BvhInit, BvhInitWithChildren};
+use bevy_slyedoc_bvh::{BvhInitWithChildren, BvhInit};
 pub use camera_controller::*;
 pub use cursor::*;
 pub use exit::*;
@@ -42,19 +42,19 @@ pub fn load_enviroment(
         ..default()
     });
 
-    // ground
-    // commands
-    //     .spawn_bundle(PbrBundle {
-    //         transform: Transform::from_xyz(0.0, 0.0, 0.0),
-    //         mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
-    //         material: materials.add(StandardMaterial {
-    //             base_color: Color::DARK_GREEN,
-    //             ..default()
-    //         }),
-    //         ..default()
-    //     })
-    //     .insert(BvhInit)
-    //     .insert(Name::new("Ground"));
+    //ground
+    commands
+        .spawn_bundle(PbrBundle {
+            transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::DARK_GREEN,
+                ..default()
+            }),
+            ..default()
+        })
+        .insert(BvhInit)
+        .insert(Name::new("Ground"));
 }
 
 #[allow(dead_code)]
@@ -76,15 +76,11 @@ pub fn load_clock_tower(mut commands: Commands, asset_server: ResMut<AssetServer
 
 #[allow(dead_code)]
 pub fn setup_cameras(mut commands: Commands) {
-    // For any UI we need
     commands.spawn_bundle(UiCameraBundle::default());
-    // For our 3d scene we need
-    // Notice we dont need ray casting sources
     commands
         .spawn_bundle(PerspectiveCameraBundle {
             transform: Transform::from_xyz(0.0, 2.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         })
-        // TODO: clean up this controller, I use it enought but its has issues with init
         .insert(CameraController::default());
 }

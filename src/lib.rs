@@ -3,6 +3,7 @@ use bevy_inspector_egui::{
     plugin::InspectorWindows, Inspectable, InspectorPlugin, RegisterInspectable,
 };
 mod ray;
+use rand::Rng;
 use ray::*;
 mod aabb;
 use aabb::*;
@@ -21,9 +22,12 @@ use bevy::{
         camera::{Camera3d, CameraProjection},
         render_resource::{Extent3d, Texture, TextureDimension, TextureFormat},
     },
-    transform::TransformSystem, utils::Instant,
+    tasks::ComputeTaskPool,
+    transform::TransformSystem,
+    utils::Instant,
 };
 use camera::*;
+use rayon::prelude::*;
 use std::mem::swap;
 
 pub mod prelude {
@@ -33,14 +37,13 @@ pub mod prelude {
 const ROOT_NODE_IDX: usize = 0;
 const BINS: usize = 8;
 
+
 pub struct BvhPlugin;
 impl Plugin for BvhPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<BvhImage>()
-            .add_event::<Raycast>()
+        app.add_event::<Raycast>()
             .add_event::<RaycastResult>()
             //.add_plugin(InspectorPlugin::<BvhImage>::new())
-            .init_resource::<BvhImage>()
             .init_resource::<BvhVec>()
             .init_resource::<BvhStats>()
             .register_inspectable::<Bvh>()
@@ -61,11 +64,13 @@ impl Plugin for BvhPlugin {
                     .with_system(Self::update_bvh_data)
                     .with_system(Self::run_raycasts.after(Self::update_bvh_data)),
             )
+            // camera systems, will make into feature
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::new()
-                    .with_system(Self::update_camera)
-                    .with_system(Self::render_camera.after(Self::update_camera)),
+                    .with_system(BvhCamera::init_camera_image.after(Self::update_bvh_data))
+                    .with_system(BvhCamera::update_camera.after(BvhCamera::init_camera_image))
+                    .with_system(BvhCamera::render_camera.after(BvhCamera::update_camera)),
             );
     }
 }
@@ -86,14 +91,10 @@ impl BvhPlugin {
     ) {
         for (e, handle) in query.iter() {
             let loaded = server.get_load_state(handle.id);
-            // info!("loaded {:?}", loaded);
-            // if loaded != LoadState::Loaded {
-            //     continue;
-            // }
-
             let mesh = meshes.get(handle).expect("Mesh not found");
             let tris = parse_mesh(mesh);
             stats.tri_count += tris.len();
+
             commands
                 .entity(e)
                 .insert(bvhs.add(Bvh::new(&tris)))
@@ -215,70 +216,6 @@ impl BvhPlugin {
         }
     }
 
-    pub fn update_camera(mut camera_query: Query<(&mut BvhCamera, &GlobalTransform)>) {
-        for (mut camera, trans) in camera_query.iter_mut() {
-            camera.update(trans);
-        }
-    }
-
-    pub fn render_camera(
-        query: Query<(
-            Entity,
-            &GlobalTransform,
-            &Tris,
-            &InvTrans,
-            &Aabb,
-            &BvhHandle,
-        )>,
-        camera_query: Query<(&BvhCamera)>,
-        mut bvh_image: ResMut<BvhImage>,
-        bvh_vec: Res<BvhVec>,
-        mut images: ResMut<Assets<Image>>,
-        mut keys: ResMut<Input<KeyCode>>,
-    ) {
-        if keys.just_pressed(KeyCode::Space) {
-            let start = Instant::now();
-            let mut image = images.get_mut(bvh_image.image.clone()).unwrap();
-            let (camera) = camera_query.single();
-
-            for i in 0..(bvh_image.height * bvh_image.width) {
-                let x = i % bvh_image.width;
-                let y = i / bvh_image.width;
-
-                let u = x as f32 / bvh_image.width as f32;
-                let v = y as f32 / bvh_image.height as f32;
-                let mut ray = camera.get_ray(u, v);
-
-                let mut t = ray.t;
-                let mut target_entity = None;
-                for (e, _trans, tris, inv_trans, bounds, bvh_handle) in query.iter() {
-                    //if ray.intersect_aabb(bounds.bmin, bounds.bmax) != 1e30f32 {
-                    let bvh = bvh_vec.get(bvh_handle);
-                    bvh.intersect(&mut ray, &tris.0, &inv_trans);
-                    if t != ray.t {
-                        target_entity = Some((e, ray));
-                        t = ray.t;
-                    }
-                }
-
-                let pixel_index = ((bvh_image.height - y - 1) * bvh_image.width + x) as usize * 4;
-                if let Some((e, ray)) = target_entity {
-                    let c = 900f32 - (ray.t * 42f32);
-                    let c = c as u8;
-                    image.data[pixel_index + 0] = c;
-                    image.data[pixel_index + 1] = c;
-                    image.data[pixel_index + 2] = c;
-                    image.data[pixel_index + 3] = 255;
-                } else {
-                    image.data[pixel_index + 0] = 0;
-                    image.data[pixel_index + 1] = 0;
-                    image.data[pixel_index + 2] = 0;
-                    image.data[pixel_index + 3] = 255;
-                }
-            }
-            info!("Render time: {:?}", start.elapsed());
-        }
-    }
 }
 
 // Markers

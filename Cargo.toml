@@ -14,6 +14,7 @@ bevy =  { version = "0.7.0" }
 bevy-inspector-egui = "0.11.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
+rayon = "1.5.3"
 
 [dev-dependencies]
 # for testing

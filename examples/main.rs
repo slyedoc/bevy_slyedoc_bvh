@@ -21,7 +21,10 @@ fn main() {
         .add_startup_system(helpers::load_enviroment)
         .add_startup_system(helpers::load_clock_tower)
         .add_startup_system(load_test)
-        .add_startup_system(display_camera)
+        .add_system_set_to_stage(
+            CoreStage::Last,
+            SystemSet::new().with_system(display_camera),
+        )
         //.add_system(camera_gizmo)
         .run();
 }
@@ -35,9 +38,8 @@ pub fn setup_cameras(mut commands: Commands) {
             ..default()
         })
         .insert(CameraController::default())
-        .insert(BvhCamera::new(45.0, 1.0, 0.1, 1.0));    
+        .insert(BvhCamera::new(512, 512, 45.0, 1.0, 1.0, 1));
 }
-
 
 #[allow(dead_code)]
 pub fn camera_gizmo(
@@ -60,36 +62,36 @@ pub fn camera_gizmo(
 }
 
 pub fn display_camera(
-    mut commands: Commands,
-    bvh_image: Res<BvhImage>,
+    mut commands: Commands, 
+    mut camera: Query<(&BvhCamera), Added<BvhCamera>>
 ) {
-    commands
-    .spawn_bundle(ImageBundle{
-        style: Style {
-            align_self: AlignSelf::FlexEnd,
-            position_type: PositionType::Absolute,
-            position: Rect {
-                bottom: Val::Px(50.0),
-                right: Val::Px(10.0),
-                ..Default::default()
-            },
-            
-            ..default()
-        },
-        image: UiImage::from(bvh_image.image.clone()),
-        ..default()
-    })
-    .insert(Name::new("BVH Image"));
+    for camera in camera.iter() {
+        if let Some(image) = &camera.image {
+            commands
+                .spawn_bundle(ImageBundle {
+                    style: Style {
+                        align_self: AlignSelf::FlexEnd,
+                        position_type: PositionType::Absolute,
+                        position: Rect {
+                            bottom: Val::Px(50.0),
+                            right: Val::Px(10.0),
+                            ..Default::default()
+                        },
+                        ..default()
+                    },
+                    image: image.clone().into(),
+                    ..default()
+                })
+                .insert(Name::new("BVH Image"));
+        }
+    }
 }
 
 fn load_test(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    bvh_image: Res<BvhImage>,
 ) {
-
-    
     commands
         .spawn_bundle(PbrBundle {
             transform: Transform::from_xyz(3.0, 0.0, 0.0),
@@ -117,7 +119,6 @@ fn load_test(
             })),
             material: materials.add(StandardMaterial {
                 base_color: Color::BLUE,
-                //unlit: true,
                 ..default()
             }),
             ..default()
