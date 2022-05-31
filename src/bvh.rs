@@ -1,6 +1,6 @@
+use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
-use crate::prelude::*;
 
 #[derive(Default, Debug, Clone, Inspectable, Copy)]
 pub struct BvhNode {
@@ -22,32 +22,34 @@ impl BvhNode {
     }
 }
 
-
-#[derive(Component, Default, Inspectable)]
+#[derive( Default, Inspectable)]
 pub struct BvhInstance {
-    pub bvh: Handle<Bvh>,
+    pub entity: Option<Entity>,
+    pub bvh_index: usize,
     pub inv_trans: Mat4,
     pub bounds: Aabb,
 }
 
 impl BvhInstance {
-    pub fn intersect(&self, ray: &mut Ray, bvhs: &Assets<Bvh>) {
-        // backup ray and transform original
 
-        if let Some(bvh) = bvhs.get(self.bvh.clone()) {
-            let mut backupRay = ray.clone();
+    pub fn update(&mut self, trans: &GlobalTransform, root: &BvhNode) {
+           // Update inv transfrom matrix for faster intersections
+           let trans_matrix = trans.compute_matrix();
+           self.inv_trans = trans_matrix.inverse();
 
-            ray.origin = self.inv_trans.transform_point3(ray.origin);
-            ray.direction = self.inv_trans.transform_vector3(ray.direction);
-            ray.direction_inv = ray.direction.recip();
-
-            bvh.intersect(ray);
-
-            // restore ray origin and direction
-            backupRay.t = ray.t;
-            *ray = backupRay;
-        }
+           // calculate world-space bounds using the new matrix
+           let bmin = root.aabb_min;
+           let bmax = root.aabb_max;
+           for i in 0..8 {
+               self.bounds.grow(trans_matrix.transform_point3(vec3(
+                   if i & 1 != 0 { bmax.x } else { bmin.x },
+                   if i & 2 != 0 { bmax.y } else { bmin.y },
+                   if i & 4 != 0 { bmax.z } else { bmin.z },
+               )));
+           }
     }
+
+
 }
 
 #[derive(Default, Component, Inspectable, Debug, TypeUuid)]
@@ -64,7 +66,7 @@ impl Bvh {
         let count = triangles.len() as u32;
         let mut bvh = Bvh {
             tris: triangles,
-            nodes:  {
+            nodes: {
                 // Add root node and empty node to offset 1
                 let mut nodes = Vec::with_capacity(64);
                 nodes.push(BvhNode {
@@ -155,7 +157,7 @@ impl Bvh {
 
         // create child nodes
         self.nodes.push(BvhNode::default());
-        let left_child_idx =  self.nodes.len() as u32 - 1;
+        let left_child_idx = self.nodes.len() as u32 - 1;
         self.nodes.push(BvhNode::default());
         let right_child_idx = self.nodes.len() as u32 - 1;
 
@@ -173,46 +175,6 @@ impl Bvh {
         // recurse
         self.subdivide_node(left_child_idx as usize);
         self.subdivide_node(right_child_idx as usize);
-    }
-
-    pub fn intersect(&self, ray: &mut Ray) {
-        // backup ray and transform original
-        let mut node = &self.nodes[ROOT_NODE_IDX];
-        let mut stack = Vec::with_capacity(64);
-        loop {
-            if node.is_leaf() {
-                for i in 0..node.tri_count {
-                    ray.intersect_triangle(
-                        &self.tris[self.triangle_indexs[(node.left_first + i) as usize]],
-                    );
-                }
-                if stack.is_empty() {
-                    break;
-                }
-                node = stack.pop().unwrap();
-                continue;
-            }
-            let mut child1 = &self.nodes[node.left_first as usize];
-            let mut child2 = &self.nodes[(node.left_first + 1) as usize];
-            let mut dist1 = ray.intersect_aabb(child1.aabb_min, child1.aabb_max);
-            let mut dist2 = ray.intersect_aabb(child2.aabb_min, child2.aabb_max);
-            if dist1 > dist2 {
-                swap(&mut dist1, &mut dist2);
-                swap(&mut child1, &mut child2);
-            }
-            if dist1 == 1e30f32 {
-                if stack.is_empty() {
-                    break;
-                }
-                node = stack.pop().unwrap();
-            } else {
-                node = child1;
-                if dist2 != 1e30f32 {
-                    stack.push(child2);
-                }
-            }
-        }
-
     }
 
     fn find_best_split_plane(&self, node: &BvhNode) -> (usize, f32, f32) {
@@ -286,4 +248,3 @@ struct Bin {
     bounds: Aabb,
     tri_count: u32,
 }
-

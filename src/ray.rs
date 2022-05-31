@@ -1,4 +1,6 @@
-use crate::{tri::Tri, Bvh};
+use std::mem::swap;
+
+use crate::{tri::Tri, Bvh, prelude::BvhInstance, ROOT_NODE_IDX, tlas::{Tlas, TlasNode}};
 use bevy::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -8,6 +10,9 @@ pub struct Ray {
     pub direction: Vec3,
     pub direction_inv: Vec3,
     pub t: f32,
+
+    // Will be set if hit
+    pub entity: Option<Entity>,
 }
 
 impl Default for Ray {
@@ -17,11 +22,13 @@ impl Default for Ray {
             direction: Vec3::Z,
             t: 0.0,
             direction_inv: Vec3::ZERO,
+            entity: None,
         }
     }
 }
 
 impl Ray {
+    // TODO: This is from bevy_mod_raycast, need to do more reading up on ndc
     pub fn from_screenspace(
         cursor_pos_screen: Vec2,
         window: &Window,
@@ -50,6 +57,7 @@ impl Ray {
             direction: ray_direction,
             direction_inv: ray_direction.recip(),
             t: 1e30,
+            entity: None
         }
     }
 
@@ -100,6 +108,103 @@ impl Ray {
             tmin
         } else {
             1e30f32
+        }
+    }
+
+    pub fn intersect(&mut self, bvh: &Bvh) {
+        // backup ray and transform original
+        let mut node = &bvh.nodes[ROOT_NODE_IDX];
+        let mut stack = Vec::with_capacity(64);
+        loop {
+            if node.is_leaf() {
+                for i in 0..node.tri_count {
+                    self.intersect_triangle(
+                        &bvh.tris[bvh.triangle_indexs[(node.left_first + i) as usize]],
+                    );
+                }
+                if stack.is_empty() {
+                    break;
+                }
+                node = stack.pop().unwrap();
+                continue;
+            }
+            let mut child1 = &bvh.nodes[node.left_first as usize];
+            let mut child2 = &bvh.nodes[(node.left_first + 1) as usize];
+            let mut dist1 = self.intersect_aabb(child1.aabb_min, child1.aabb_max);
+            let mut dist2 = self.intersect_aabb(child2.aabb_min, child2.aabb_max);
+            if dist1 > dist2 {
+                swap(&mut dist1, &mut dist2);
+                swap(&mut child1, &mut child2);
+            }
+            if dist1 == 1e30f32 {
+                if stack.is_empty() {
+                    break;
+                }
+                node = stack.pop().unwrap();
+            } else {
+                node = child1;
+                if dist2 != 1e30f32 {
+                    stack.push(child2);
+                }
+            }
+        }
+    }
+
+    pub fn intersect_bvh_instance(&mut self, bvh_instance: &BvhInstance, bvhs: &[Bvh]) {
+        let bvh = &bvhs[bvh_instance.bvh_index];
+        // backup ray and transform original        
+        let mut backupRay = self.clone();
+
+        self.origin = bvh_instance.inv_trans.transform_point3(self.origin);
+        self.direction = bvh_instance.inv_trans.transform_vector3(self.direction);
+        self.direction_inv = self.direction.recip();
+
+        self.intersect(bvh);
+
+        // if we hit, update backup before restore
+        if backupRay.t != self.t {
+           backupRay.t = self.t;    
+           backupRay.entity = bvh_instance.entity;
+        }
+        
+        // restore ray origin and direction
+        *self = backupRay;
+    }
+
+
+     pub fn intersect_tlas(&mut self, tlas: &Tlas) {
+        let mut stack = Vec::<&TlasNode>::with_capacity(64);
+        let mut node = &tlas.tlas_nodes[0];
+        while true {
+            if node.is_leaf() {
+                self.intersect_bvh_instance(&tlas.blas[node.blas as usize], &tlas.bvhs);                
+                if stack.is_empty() {
+                    break;
+                } else {
+                    node = stack.pop().unwrap();
+                }
+                continue;
+            }
+            let mut child1 = &tlas.tlas_nodes[(node.left_right & 0xffff) as usize];
+            let mut child2 = &tlas.tlas_nodes[(node.left_right >> 16) as usize];
+            let mut dist1 = self.intersect_aabb(child1.aabb_min, child1.aabb_max);
+            let mut dist2 = self.intersect_aabb(child2.aabb_min, child2.aabb_max);
+            if dist1 > dist2 {
+                swap(&mut dist1, &mut dist2);
+                swap(&mut child1, &mut child2);
+            }
+            if dist1 == 1e30f32{
+                if stack.is_empty() {
+                    break;
+                } else {
+                    node = &stack.pop().unwrap();
+                }
+            } else {
+                node = child1; 
+                if dist2 != 1e30f32 {
+                    stack.push(child2);
+                }
+            }
         }
     }
 }

@@ -71,18 +71,15 @@ impl BvhCamera {
 
         let look_at = self.origin + trans.forward();
 
-        self.w = -trans.forward(); //(self.origin - look_at).normalize();
-        self.u = trans.right(); //.cross(self.w).normalize();
-        self.v = trans.up(); //self.w.cross(self.u);
+        self.w = -trans.forward();
+        self.u = trans.right();
+        self.v = trans.up();
 
         self.horizontal = self.focus_dist * self.viewport_width * self.u;
         self.vertical = self.focus_dist * self.viewport_height * self.v;
 
         self.lower_left_corner =
             self.origin - self.horizontal / 2.0 - self.vertical / 2.0 - self.focus_dist * self.w;
-        // let origin = look_from;
-        // let horizontal = focus_dist * viewport_width * u;
-        // let vertical = focus_dist * viewport_height * v;
     }
 
     pub fn get_ray(&self, u: f32, v: f32) -> Ray {
@@ -97,26 +94,16 @@ impl BvhCamera {
             direction: direction,
             direction_inv: direction.recip(),
             t: 1e30f32,
+            entity: None
         }
     }
 }
-// fn random_in_unit_disk(rng: &ThreadRng) -> Vec3 {
-//     loop {
-//         let mut rng = rand::thread_rng();
-//         let p = vec3(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);
-//         if p.length_squared() >= 1.0 {
-//             continue;
-//         }
-//         return p;
-//     }
-// }
-
 
 pub mod CameraSystem {
     use bevy::{prelude::*, render::render_resource::{Extent3d, TextureDimension, TextureFormat}, utils::Instant};
     use rayon::prelude::*;
 
-    use crate::{prelude::{Aabb, Bvh}, BvhInstance, BvhStats};
+    use crate::{prelude::{Aabb, Bvh}, BvhInstance, BvhStats, tlas::Tlas};
 
     use super::BvhCamera;
 
@@ -131,7 +118,6 @@ pub mod CameraSystem {
         mut images: ResMut<Assets<Image>>,
     ) {
         for (e, mut camera) in query.iter_mut() {
-            info!("Setup Camera");
             let mut image = images.add(Image::new(
                 Extent3d {
                     width: camera.width as u32,
@@ -153,22 +139,23 @@ pub mod CameraSystem {
     }
 
     pub fn render_camera(
-        query: Query<(
-            Entity,
-            &GlobalTransform,
-            &BvhInstance,
-        )>,
         camera_query: Query<(&BvhCamera)>,
-        mut images: ResMut<Assets<Image>>,
-        mut bvhs: Res<Assets<Bvh>>,
+        mut images: ResMut<Assets<Image>>,        
         mut keys: ResMut<Input<KeyCode>>,
         mut stats: ResMut<BvhStats>,
+        tlas: Res<Tlas>,
     ) {
 
         if let Ok(camera) = camera_query.get_single() && let Some(image) = &camera.image {
 
+            if tlas.blas.len() == 0 {
+                warn!("No BLAS");
+                return;
+            }
             let start = Instant::now();
             let mut image = images.get_mut(image).unwrap();
+
+            // TODO: Make this tiles instead of per pixel
             image.data.par_chunks_mut(4)
             .enumerate()
             .for_each(|(i, mut pixel)| {
@@ -180,20 +167,9 @@ pub mod CameraSystem {
                         let v = y as f32 / camera.height as f32;
                         
                         // TODO: flip v since image is upside down, figure out why
-                        let mut ray = camera.get_ray(u, 1.0 - v); 
-                        
-                        let mut t = ray.t;
-                        let mut target_entity = None;
-                        for (e, _trans, bvh_inst) in query.iter() {
-                            //if ray.intersect_aabb(bounds.bmin, bounds.bmax) != 1e30f32 {
-                            bvh_inst.intersect(&mut ray, &bvhs);
-                            if t != ray.t {
-                                target_entity = Some((e, ray));
-                                t = ray.t;
-                            }
-                        }
-    
-                        if let Some((e, ray)) = target_entity {
+                        let mut ray = camera.get_ray(u, 1.0 - v);                         
+                        ray.intersect_tlas(&tlas);
+                        if ray.t != 1e30f32 {
                             let c = 900f32 - (ray.t * 42f32);
                             let c = c as u8;
                             let c = c as f32 / 255f32;
