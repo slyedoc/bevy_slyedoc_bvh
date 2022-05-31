@@ -43,27 +43,28 @@ const BINS: usize = 8;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[derive(SystemLabel)]
-pub struct BvhSetup;
+pub enum BvhSystems {
+    Setup,
+    Camera,
+}
 
 pub struct BvhPlugin;
 impl Plugin for BvhPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<Raycast>()
-            .add_event::<RaycastResult>()
-            //.add_plugin(InspectorPlugin::<BvhImage>::new())
+        app
             .init_resource::<BvhStats>()
             .init_resource::<Tlas>()
             .register_inspectable::<Bvh>()
+            .register_inspectable::<BvhInstance>()
+            .register_inspectable::<BvhCamera>()
             .register_inspectable::<Tlas>()
             .register_inspectable::<TlasNode>()
-            .register_inspectable::<BvhCamera>()
-            .register_inspectable::<BvhInstance>()
             .register_inspectable::<Tri>()
             .register_inspectable::<Aabb>()
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::new()
-                    .label(BvhSetup)
+                    .label(BvhSystems::Setup)
                     .after(TransformSystem::TransformPropagate)
                     .with_system(Self::spawn_bvh)
                     .with_system(Self::spawn_bvh_with_children)
@@ -78,7 +79,8 @@ impl Plugin for BvhPlugin {
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::new()
-                    .after(BvhSetup)
+                    .label(BvhSystems::Camera)
+                    .after(BvhSystems::Setup)
                     .with_system(CameraSystem::init_camera_image)
                     .with_system(CameraSystem::update_camera.after(CameraSystem::init_camera_image))
                     .with_system(CameraSystem::render_camera.after(CameraSystem::update_camera)),
@@ -179,21 +181,8 @@ impl BvhPlugin {
 // Markers
 #[derive(Component)]
 pub struct BvhInit;
-
-// TODO: make this a bit more generic, we only need the handle to check for loaded state
-// maybe a better way to find that info
 #[derive(Component)]
 pub struct BvhInitWithChildren(pub Handle<Scene>);
-
-// TODO: should be something like assets to do this
-// TODO: will move into tlas
-
-pub struct Raycast(pub Ray);
-pub struct RaycastResult {
-    pub entity: Option<Entity>,
-    pub world_position: Vec3,
-    pub distance: f32,
-}
 
 pub fn parse_mesh(mesh: &Mesh) -> Vec<Tri> {
     match mesh.primitive_topology() {

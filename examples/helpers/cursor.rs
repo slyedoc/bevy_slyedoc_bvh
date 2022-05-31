@@ -1,15 +1,12 @@
 use bevy::{prelude::*, render::camera::Camera3d};
-use bevy_slyedoc_bvh::{
-    prelude::*,
-    BvhSetup, 
-};
+use bevy_slyedoc_bvh::prelude::*;
 
 pub struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(load_cursor)
-            .add_system_to_stage(CoreStage::PostUpdate, move_cursor.after(BvhSetup));
+            .add_system_to_stage(CoreStage::PostUpdate, move_cursor.after(BvhSystems::Setup));
     }
 }
 
@@ -25,12 +22,13 @@ fn load_cursor(
         .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere {
                 radius: 0.1,
-                sectors: 12,
-                stacks: 12,
+                sectors: 30,
+                stacks: 30,
             })),
             material: materials.add(StandardMaterial {
-                base_color: Color::rgba(1.0, 0.0, 0.0, 0.5),
+                base_color: Color::rgba(1.0, 0.0, 0.0, 0.2),
                 unlit: true,
+                alpha_mode: AlphaMode::Blend,
                 ..default()
             }),
             visibility: Visibility { is_visible: false },

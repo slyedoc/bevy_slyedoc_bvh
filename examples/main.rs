@@ -22,8 +22,10 @@ fn main() {
         .add_startup_system(helpers::load_clock_tower)
         .add_startup_system(load_test)
         .add_system_set_to_stage(
-            CoreStage::Last,
-            SystemSet::new().with_system(display_camera),
+            CoreStage::PostUpdate,
+            SystemSet::new()
+            .after(BvhSystems::Camera)
+            .with_system(display_camera),
         )
         //.add_system(camera_gizmo)
         .run();
