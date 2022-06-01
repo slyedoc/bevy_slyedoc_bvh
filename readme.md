@@ -1,6 +1,6 @@
 # bevy_slyedoc_bvh
 
-[![Watch the video](./docs/bvh_render.mp4)]
+[![Watch the video](./docs/bvh_render.png)](./docs/bvh_render.mp4)
 
 Credit: This is largely based on the amazing [tutorial](https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/) series by Jacco Bikker.  Go check it out.
 
