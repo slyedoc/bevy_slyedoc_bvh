@@ -226,7 +226,7 @@ fn update_render_time(mut query: Query<&mut Text, With<RenderTimeText>>, stats: 
 fn update_ray_count(mut query: Query<&mut Text, With<RayCountText>>, stats: Res<BvhStats>) {
     for mut text in query.iter_mut() {
         // Update the value of the second section
-        text.sections[1].value = format!("{:.1} Mps", stats.ray_count as f32 / stats.camera_time.as_micros() as f32);
+        text.sections[1].value = format!("{:.0} Mps", stats.ray_count as f32 / stats.camera_time.as_micros() as f32);
     }
 }
 

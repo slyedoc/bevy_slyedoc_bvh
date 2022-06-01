@@ -167,10 +167,15 @@ impl BvhPlugin {
         }
     }
 
+
+    // TODO: Add refit
     pub fn update_bvh(mut query: Query<(&GlobalTransform)>, mut tlas: ResMut<Tlas>) {
+        // moved fn into tlas self to since it needed 2 mutable refs within the tlas
         tlas.update_bvh(&query);
+        
     }
 
+    // TODO: Add refit and dont build every frame
     pub fn update_tlas(mut query: Query<(&GlobalTransform)>, mut tlas: ResMut<Tlas>) {
         // TODO: this is a hack, should only call once
         tlas.build();
@@ -184,6 +189,7 @@ pub struct BvhInit;
 #[derive(Component)]
 pub struct BvhInitWithChildren(pub Handle<Scene>);
 
+// TODO: We dont really want to copy the all tris, find better way
 pub fn parse_mesh(mesh: &Mesh) -> Vec<Tri> {
     match mesh.primitive_topology() {
         bevy::render::mesh::PrimitiveTopology::TriangleList => {
