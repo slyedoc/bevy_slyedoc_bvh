@@ -1,6 +1,7 @@
 # bevy_slyedoc_bvh
 
-[![Watch the video](./docs/bvh_render.png)](./docs/bvh_render.mp4)
+// TODO: Make better vid
+![image](./docs/bvh_render.gif)
 
 Credit: This is largely based on the amazing [tutorial](https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/) series by Jacco Bikker.  Go check it out.
 
@@ -18,4 +19,4 @@ Warning: At the moment I wouldn't leave this running.
 
 I am leaving a lot of Jacco's optimization out at the moment, first focusing on getting everything working and readability.  For example, he doesn't use Vectors at all.
 
-The examples are more used to help me test and debug at the moment.
+The examples are more used to help me test and debug at the moment. For example use case checkout the [Cursor Plugin](./examples/helpers/cursor.rs)
