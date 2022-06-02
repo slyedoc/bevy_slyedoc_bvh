@@ -1,5 +1,5 @@
-use crate::prelude::*;
-use bevy::prelude::*;
+use crate::{prelude::*, BINS};
+use bevy::{prelude::*, math::vec3, reflect::TypeUuid};
 use bevy_inspector_egui::Inspectable;
 
 #[derive(Default, Debug, Clone, Inspectable, Copy)]
@@ -22,7 +22,6 @@ impl BvhNode {
     }
 }
 
-
 #[derive(Inspectable)]
 pub struct BvhInstance {
     pub entity: Entity, 
@@ -30,7 +29,6 @@ pub struct BvhInstance {
     pub inv_trans: Mat4,
     pub bounds: Aabb,
 }
-
 
 impl BvhInstance {
     pub fn new(entity: Entity, bvh_index: usize) -> Self {

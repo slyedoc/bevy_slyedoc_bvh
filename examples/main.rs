@@ -19,8 +19,8 @@ fn main() {
         //.add_plugin(DebugLinesPlugin::default())
         .add_startup_system(setup_cameras)
         .add_startup_system(helpers::load_enviroment)
-        .add_startup_system(helpers::load_clock_tower)
-        .add_startup_system(load_test)
+        .add_startup_system(helpers::load_sponza)
+        //.add_startup_system(load_test)
         .add_system_set_to_stage(
             CoreStage::PostUpdate,
             SystemSet::new()
@@ -33,14 +33,13 @@ fn main() {
 
 pub fn setup_cameras(mut commands: Commands) {
     commands.spawn_bundle(UiCameraBundle::default());
-
     commands
         .spawn_bundle(PerspectiveCameraBundle {
             transform: Transform::from_xyz(0.0, 2.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         })
         .insert(CameraController::default())
-        .insert(BvhCamera::new(512, 512, 45.0, 1.0, 1.0, 1));
+        .insert(BvhCamera::new(128, 128, 45.0, 1.0, 1.0, 1));
 }
 
 #[allow(dead_code)]

@@ -4,7 +4,7 @@ use crate::{
     prelude::BvhInstance,
     tlas::{Tlas, TlasNode},
     tri::Tri,
-    Bvh, ROOT_NODE_IDX,
+    Bvh,
 };
 use bevy::prelude::*;
 
@@ -140,7 +140,7 @@ impl Ray {
     }
 
     pub fn intersect_bvh(&mut self, bvh: &Bvh, entity: Entity) {
-        let mut node = &bvh.nodes[ROOT_NODE_IDX];
+        let mut node = &bvh.nodes[0];
         let mut stack = Vec::with_capacity(64);
         loop {
             if node.is_leaf() {

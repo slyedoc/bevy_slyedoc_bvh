@@ -1,10 +1,10 @@
 use bevy::{prelude::*, render::camera::Camera3d};
 use bevy_slyedoc_bvh::prelude::*;
-
 pub struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
+        
         app.add_startup_system(load_cursor)
             .add_system_to_stage(CoreStage::PostUpdate, move_cursor.after(BvhSystems::Setup));
     }
@@ -44,6 +44,7 @@ fn move_cursor(
     mut cusror_query: Query<(&mut Transform, &mut Visibility), With<Cursor>>,
     tlas: Res<Tlas>,
 ) {
+
     if let Some(window) = windows.get_primary() {
         if let Some(mouse_pos) = window.cursor_position() {
             if let Ok((trans, cam)) = camera_query.get_single() {
@@ -59,7 +60,7 @@ fn move_cursor(
                 // see if we hit
                 if ray.hit.t < 1e30f32 {
                     // we could do something with the entity here
-                    cursor_trans.translation = ray.origin + ray.direction * ray.t;
+                    cursor_trans.translation = ray.origin + ray.direction * ray.hit.t;
                     cursor_vis.is_visible = true;
                 } else {
                     cursor_vis.is_visible = false;

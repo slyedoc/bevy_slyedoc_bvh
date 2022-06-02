@@ -35,10 +35,9 @@ use rayon::prelude::*;
 use std::{mem::swap, ops::Add, time::Duration};
 
 pub mod prelude {
-    pub use crate::{aabb::*, assets::*, bvh::*, camera::*, ray::*, tlas::*, tri::*, *};
+    pub use crate::{aabb::*, assets::*, bvh::*, camera::*, ray::*, tlas::*, tri::*, BvhSystems, BvhPlugin, BvhInit};
 }
 
-const ROOT_NODE_IDX: usize = 0;
 const BINS: usize = 8;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, SystemLabel)]
