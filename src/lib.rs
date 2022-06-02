@@ -85,6 +85,8 @@ impl Plugin for BvhPlugin {
     }
 }
 
+
+
 #[derive(Default)]
 pub struct BvhStats {
     pub tri_count: usize,
@@ -167,6 +169,104 @@ impl BvhPlugin {
         tlas.build();
     }
 }
+
+
+pub mod CameraSystem {
+    use bevy::{prelude::*, render::render_resource::{Extent3d, TextureDimension, TextureFormat}, utils::Instant, math::vec3};
+    use rand::Rng;
+    use rayon::prelude::*;
+
+    use crate::{prelude::{Aabb, Bvh, Ray}, BvhInstance, BvhStats, tlas::Tlas};
+
+    use super::BvhCamera;
+
+    const TILE_SIZE: usize = 64;
+
+    //
+    // Camera Systems
+    //
+    pub fn init_camera_image(
+        mut commands: Commands,
+        mut query: Query<(Entity, &mut BvhCamera), Added<BvhCamera>>,
+        mut images: ResMut<Assets<Image>>,
+    ) {
+        for (e, mut camera) in query.iter_mut() {
+            let mut image = images.add(Image::new(
+                Extent3d {
+                    width: camera.width as u32,
+                    height: camera.height as u32,
+                    depth_or_array_layers: 1,
+                },
+                TextureDimension::D2,
+                vec![0; (camera.width * camera.height) as usize * 4],
+                TextureFormat::Rgba8UnormSrgb,
+            ));
+            camera.image = Some(image);
+        }
+    }
+
+    pub fn update_camera(mut camera_query: Query<(&mut BvhCamera, &GlobalTransform)>) {
+        for (mut camera, trans) in camera_query.iter_mut() {
+            camera.update(trans);
+        }
+    }
+
+    pub fn render_camera(
+        camera_query: Query<(&BvhCamera)>,
+        mut images: ResMut<Assets<Image>>,        
+        mut keys: ResMut<Input<KeyCode>>,
+        mut stats: ResMut<BvhStats>,
+        tlas: Res<Tlas>,
+    ) {
+        if let Ok(camera) = camera_query.get_single() && let Some(image) = &camera.image {
+            let start = Instant::now();
+        
+            let mut image = images.get_mut(image).unwrap();
+        
+            // TODO: Make this acutally tilings, currenty this just takes a slice pixels in a row
+            const pixel_tile_count: usize = 64;
+            const pixel_tile: usize = 4 * pixel_tile_count;
+            image.data.par_chunks_mut(pixel_tile)        
+            .enumerate()
+            .for_each(|(i, mut pixels)| {
+                let mut rng = rand::thread_rng();
+                let mut ray = Ray::default();
+                for pixel_offset in 0..(pixels.len() / 4) {
+                    let index = i * pixel_tile_count + pixel_offset;
+                    let offset = pixel_offset * 4;
+
+                    let x = index as u32 % camera.width;
+                    let y = index as u32 / camera.width;                
+                    let u = x as f32 / camera.width as f32;
+                    let v = y as f32 / camera.height as f32;
+                    // TODO: Revisit multiple samples later
+                    // if samples > 0 {
+                    //     u += rng.gen::<f32>() / camera.width as f32;
+                    //     v += rng.gen::<f32>() / camera.height as f32;
+                    // }
+                        
+                    // TODO: flip v since image is upside down, figure out why
+                    camera.set_ray(&mut ray, u, 1.0 - v);                         
+                    ray.intersect_tlas(&tlas);
+                    let color = if ray.hit.t < 1e30f32 {
+                        vec3( ray.hit.u, ray.hit.v, 1.0 - (ray.hit.u + ray.hit.v) ) * 255.0
+                    } else {
+                        Vec3::ZERO
+                    };
+                    
+                    pixels[offset + 0] = color.x as u8;
+                    pixels[offset + 1] = color.y as u8;
+                    pixels[offset + 2] = color.z as u8;
+                    pixels[offset + 3] = 255;
+                }  
+            });
+
+            stats.ray_count = camera.width as f32 * camera.height as f32 * camera.samples as f32;
+            stats.camera_time = start.elapsed();
+        }                
+    }
+}
+
 
 // Markers
 #[derive(Component)]
