@@ -1,18 +1,43 @@
-use std::mem::swap;
+use std::{arch::x86_64::*, mem::swap};
 
-use crate::{tri::Tri, Bvh, prelude::BvhInstance, ROOT_NODE_IDX, tlas::{Tlas, TlasNode}};
+use crate::{
+    prelude::BvhInstance,
+    tlas::{Tlas, TlasNode},
+    tri::Tri,
+    Bvh, ROOT_NODE_IDX,
+};
 use bevy::prelude::*;
+
+#[derive(Debug, Clone, Copy)]
+pub struct Hit {
+    pub t: f32, // intersection distance along ray
+    pub u: f32, // barycentric coordinates of the intersection
+    pub v: f32,
+    // We are using more bits here than in tutorial
+    pub tri_index: usize,
+    pub entity: Entity,
+}
+
+impl Default for Hit {
+    fn default() -> Self {
+        Self {
+            t: 1e30f32,
+            u: Default::default(),
+            v: Default::default(),
+            tri_index: Default::default(),
+            // TODO: Yes this isnt ideal, should be an option, will come back to this
+            entity: Entity::from_raw(0),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct Ray {
     pub origin: Vec3,
-    // Should be normalized
-    pub direction: Vec3,
+    pub direction: Vec3, // Should be normalized
     pub direction_inv: Vec3,
     pub t: f32,
-
-    // Will be set if hit
-    pub entity: Option<Entity>,
+    pub hit: Hit,
 }
 
 impl Default for Ray {
@@ -20,9 +45,9 @@ impl Default for Ray {
         Ray {
             origin: Vec3::ZERO,
             direction: Vec3::Z,
-            t: 0.0,
+            t: 1e30f32,
             direction_inv: Vec3::ZERO,
-            entity: None,
+            hit: Hit::default(),
         }
     }
 }
@@ -57,38 +82,41 @@ impl Ray {
             direction: ray_direction,
             direction_inv: ray_direction.recip(),
             t: 1e30,
-            entity: None
+            hit: Hit::default(),
         }
     }
 
     // Moller Trumbore
     // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
-    pub fn intersect_triangle(&mut self, tri: &Tri) -> bool {
+    pub fn intersect_triangle(&mut self, tri: &Tri, tri_index: usize, entity: Entity) {
         let edge1 = tri.vertex1 - tri.vertex0;
         let edge2 = tri.vertex2 - tri.vertex0;
         let h = self.direction.cross(edge2);
         let a = edge1.dot(h);
         if a > -0.0001 && a < 0.0001 {
-            return false;
+            return;
         };
         // ray parallel to triangle
         let f = 1.0 / a;
         let s = self.origin - tri.vertex0;
         let u = f * s.dot(h);
         if !(0.0..=1.0).contains(&u) {
-            return false;
+            return;
         }
         let q = s.cross(edge1);
         let v = f * self.direction.dot(q);
         if v < 0.0 || u + v > 1.0 {
-            return false;
+            return;
         }
         let t = f * edge2.dot(q);
-        if t > 0.0001 {
-            self.t = self.t.min(t);
-            return true;
+        // TODO: The option part here feels sloppy
+        if t > 0.0001 && t < self.hit.t {
+            self.hit.t = t;
+            self.hit.u = u;
+            self.hit.v = v;
+            self.hit.tri_index = tri_index;
+            self.hit.entity = entity;
         }
-        false
     }
 
     pub fn intersect_aabb(&self, bmin: Vec3, bmax: Vec3) -> f32 {
@@ -104,23 +132,21 @@ impl Ray {
         let tz2 = (bmax.z - self.origin.z) * self.direction_inv.z;
         let tmin = tmin.max(tz1.min(tz2));
         let tmax = tmax.min(tz1.max(tz2));
-        if tmax >= tmin && tmin < self.t && tmax > 0.0 {
+        if tmax >= tmin && tmin < self.hit.t && tmax > 0.0 {
             tmin
         } else {
             1e30f32
         }
     }
 
-    pub fn intersect(&mut self, bvh: &Bvh) {
-        // backup ray and transform original
+    pub fn intersect_bvh(&mut self, bvh: &Bvh, entity: Entity) {
         let mut node = &bvh.nodes[ROOT_NODE_IDX];
         let mut stack = Vec::with_capacity(64);
         loop {
             if node.is_leaf() {
                 for i in 0..node.tri_count {
-                    self.intersect_triangle(
-                        &bvh.tris[bvh.triangle_indexs[(node.left_first + i) as usize]],
-                    );
+                    let tri_index = bvh.triangle_indexs[(node.left_first + i) as usize];
+                    self.intersect_triangle(&bvh.tris[tri_index], tri_index, entity);
                 }
                 if stack.is_empty() {
                     break;
@@ -152,32 +178,25 @@ impl Ray {
 
     pub fn intersect_bvh_instance(&mut self, bvh_instance: &BvhInstance, bvhs: &[Bvh]) {
         let bvh = &bvhs[bvh_instance.bvh_index];
-        // backup ray and transform original        
-        let mut backupRay = self.clone();
+        // backup ray and transform original
+        let mut backup_ray = self.clone();
 
         self.origin = bvh_instance.inv_trans.transform_point3(self.origin);
         self.direction = bvh_instance.inv_trans.transform_vector3(self.direction);
         self.direction_inv = self.direction.recip();
+        self.intersect_bvh(bvh, bvh_instance.entity);
 
-        self.intersect(bvh);
-
-        // if we hit, update backup before restore
-        if backupRay.t != self.t {
-           backupRay.t = self.t;    
-           backupRay.entity = bvh_instance.entity;
-        }
-        
         // restore ray origin and direction
-        *self = backupRay;
+        backup_ray.hit = self.hit;
+        *self = backup_ray;
     }
 
-
-     pub fn intersect_tlas(&mut self, tlas: &Tlas) {
+    pub fn intersect_tlas(&mut self, tlas: &Tlas) {
         let mut stack = Vec::<&TlasNode>::with_capacity(64);
         let mut node = &tlas.tlas_nodes[0];
         while true {
             if node.is_leaf() {
-                self.intersect_bvh_instance(&tlas.blas[node.blas as usize], &tlas.bvhs);                
+                self.intersect_bvh_instance(&tlas.blas[node.blas as usize], &tlas.bvhs);
                 if stack.is_empty() {
                     break;
                 } else {
@@ -193,14 +212,14 @@ impl Ray {
                 swap(&mut dist1, &mut dist2);
                 swap(&mut child1, &mut child2);
             }
-            if dist1 == 1e30f32{
+            if dist1 == 1e30f32 {
                 if stack.is_empty() {
                     break;
                 } else {
                     node = &stack.pop().unwrap();
                 }
             } else {
-                node = child1; 
+                node = child1;
                 if dist2 != 1e30f32 {
                     stack.push(child2);
                 }

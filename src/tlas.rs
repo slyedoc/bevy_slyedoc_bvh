@@ -22,6 +22,7 @@ impl TlasNode {
 #[derive(Inspectable)]
 pub struct Tlas {
     pub tlas_nodes: Vec<TlasNode>,
+    #[inspectable(ignore)]
     pub blas: Vec<BvhInstance>,
     pub bvhs: Vec<Bvh>,
 }
@@ -119,7 +120,7 @@ impl Tlas {
     pub fn update_bvh(&mut self, query: &Query<(&GlobalTransform)>) {
         for mut instance in &mut self.blas {
             let bvh = &self.bvhs[instance.bvh_index];
-            if let Some(e) = instance.entity && let Ok(trans) = query.get(e) {
+            if let Ok(trans) = query.get(instance.entity) {
                 instance.update(trans, &bvh.nodes[0]);
             }
         }

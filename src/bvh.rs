@@ -22,34 +22,42 @@ impl BvhNode {
     }
 }
 
-#[derive( Default, Inspectable)]
+
+#[derive(Inspectable)]
 pub struct BvhInstance {
-    pub entity: Option<Entity>,
+    pub entity: Entity, 
     pub bvh_index: usize,
     pub inv_trans: Mat4,
     pub bounds: Aabb,
 }
 
+
 impl BvhInstance {
-
-    pub fn update(&mut self, trans: &GlobalTransform, root: &BvhNode) {
-           // Update inv transfrom matrix for faster intersections
-           let trans_matrix = trans.compute_matrix();
-           self.inv_trans = trans_matrix.inverse();
-
-           // calculate world-space bounds using the new matrix
-           let bmin = root.aabb_min;
-           let bmax = root.aabb_max;
-           for i in 0..8 {
-               self.bounds.grow(trans_matrix.transform_point3(vec3(
-                   if i & 1 != 0 { bmax.x } else { bmin.x },
-                   if i & 2 != 0 { bmax.y } else { bmin.y },
-                   if i & 4 != 0 { bmax.z } else { bmin.z },
-               )));
-           }
+    pub fn new(entity: Entity, bvh_index: usize) -> Self {
+        Self {
+            entity: entity,
+            bvh_index,
+            inv_trans: Mat4::default(),
+            bounds: Aabb::default(),
+        }
     }
 
+    pub fn update(&mut self, trans: &GlobalTransform, root: &BvhNode) {
+        // Update inv transfrom matrix for faster intersections
+        let trans_matrix = trans.compute_matrix();
+        self.inv_trans = trans_matrix.inverse();
 
+        // calculate world-space bounds using the new matrix
+        let bmin = root.aabb_min;
+        let bmax = root.aabb_max;
+        for i in 0..8 {
+            self.bounds.grow(trans_matrix.transform_point3(vec3(
+                if i & 1 != 0 { bmax.x } else { bmin.x },
+                if i & 2 != 0 { bmax.y } else { bmin.y },
+                if i & 4 != 0 { bmax.z } else { bmin.z },
+            )));
+        }
+    }
 }
 
 #[derive(Default, Component, Inspectable, Debug, TypeUuid)]

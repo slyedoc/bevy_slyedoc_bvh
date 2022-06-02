@@ -53,8 +53,9 @@ pub fn load_enviroment(
             }),
             ..default()
         })
-        .insert(BvhInit)
-        .insert(Name::new("Ground"));
+        .insert(Name::new("Ground"))
+        // This Marker will have our mesh added
+        .insert(BvhInit);
 }
 
 #[allow(dead_code)]

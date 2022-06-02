@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, math::Vec3};
 use bevy_inspector_egui::Inspectable;
 
 #[derive(Default, Debug, Copy, Inspectable, Clone)]
@@ -15,7 +15,7 @@ impl Tri {
             vertex0: v0,
             vertex1: v1,
             vertex2: v2,
-            centroid: (v0 + v1 + v2) / 3.0,  // * 0.3333f32
+            centroid: (v0 + v1 + v2) / 3.0,
         }
     }
 }

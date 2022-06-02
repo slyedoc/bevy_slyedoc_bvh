@@ -3,14 +3,14 @@ use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     transform,
-    utils::Instant,
+    utils::{Instant, hashbrown::hash_set::Intersection},
 };
 use bevy_inspector_egui::Inspectable;
 use rand::prelude::*;
 use rayon::prelude::*;
 
 use crate::{
-    prelude::{Aabb, Ray},
+    prelude::{Aabb, Ray, Hit},
     BvhInstance, BvhStats,
 };
 
@@ -82,28 +82,21 @@ impl BvhCamera {
             self.origin - self.horizontal / 2.0 - self.vertical / 2.0 - self.focus_dist * self.w;
     }
 
-    pub fn get_ray(&self, u: f32, v: f32) -> Ray {
-        //let rd = self.lens_radius * Vec3::random_in_unit_disk();
-        let offset = Vec3::ZERO;
-        let mut direction =
-            self.lower_left_corner + u * self.horizontal + v * self.vertical - self.origin - offset;
-        direction = direction.normalize();
-
-        Ray {
-            origin: self.origin,
-            direction: direction,
-            direction_inv: direction.recip(),
-            t: 1e30f32,
-            entity: None
-        }
+    pub fn set_ray(&self, ray: &mut Ray, u: f32, v: f32) {
+        ray.origin = self.origin;
+        ray.direction = (self.lower_left_corner + u * self.horizontal + v * self.vertical - self.origin).normalize();        
+        ray.direction_inv = ray.direction.recip();
+        ray.t = 1e30f32;
+        ray.hit = Hit::default();
     }
 }
 
 pub mod CameraSystem {
-    use bevy::{prelude::*, render::render_resource::{Extent3d, TextureDimension, TextureFormat}, utils::Instant};
+    use bevy::{prelude::*, render::render_resource::{Extent3d, TextureDimension, TextureFormat}, utils::Instant, math::vec3};
+    use rand::Rng;
     use rayon::prelude::*;
 
-    use crate::{prelude::{Aabb, Bvh}, BvhInstance, BvhStats, tlas::Tlas};
+    use crate::{prelude::{Aabb, Bvh, Ray}, BvhInstance, BvhStats, tlas::Tlas};
 
     use super::BvhCamera;
 
@@ -145,46 +138,51 @@ pub mod CameraSystem {
         mut stats: ResMut<BvhStats>,
         tlas: Res<Tlas>,
     ) {
-
         if let Ok(camera) = camera_query.get_single() && let Some(image) = &camera.image {
-
-            if tlas.blas.len() == 0 {
-                warn!("No BLAS");
-                return;
-            }
             let start = Instant::now();
+        
             let mut image = images.get_mut(image).unwrap();
-
-            // TODO: Make this tiles instead of per pixel
-            image.data.par_chunks_mut(4)
+        
+            // TODO: Make this acutally tilings, currenty this just takes a slice pixels in a row
+            const pixel_tile_count: usize = 64;
+            const pixel_tile: usize = 4 * pixel_tile_count;
+            image.data.par_chunks_mut(pixel_tile)        
             .enumerate()
-            .for_each(|(i, mut pixel)| {
-                    let x = i as u32 % camera.width;
-                    let y = i as u32 / camera.width;                
-                    let mut result = Vec4::new(0.0, 0.0, 0.0, 1.0);                
-                    for k in 0..camera.samples {
-                        let u = x as f32 / camera.width as f32;
-                        let v = y as f32 / camera.height as f32;
+            .for_each(|(i, mut pixels)| {
+                let mut rng = rand::thread_rng();
+                let mut ray = Ray::default();
+                for pixel_offset in 0..(pixels.len() / 4) {
+                    let index = i * pixel_tile_count + pixel_offset;
+                    let offset = pixel_offset * 4;
+
+                    let x = index as u32 % camera.width;
+                    let y = index as u32 / camera.width;                
+                    let u = x as f32 / camera.width as f32;
+                    let v = y as f32 / camera.height as f32;
+                    // TODO: Revisit multiple samples later
+                    // if samples > 0 {
+                    //     u += rng.gen::<f32>() / camera.width as f32;
+                    //     v += rng.gen::<f32>() / camera.height as f32;
+                    // }
                         
-                        // TODO: flip v since image is upside down, figure out why
-                        let mut ray = camera.get_ray(u, 1.0 - v);                         
-                        ray.intersect_tlas(&tlas);
-                        if ray.t != 1e30f32 {
-                            let c = 900f32 - (ray.t * 42f32);
-                            let c = c as u8;
-                            let c = c as f32 / 255f32;
-                            let c = Vec4::new(c, c, c, 1.0);
-                            result += c;
-                        } else {
-                            result += Vec4::new(0.0, 0.0, 0.0, 1.0);
-                        }
-                    }
-                    result /= camera.samples as f32;
+                    // TODO: flip v since image is upside down, figure out why
+                    camera.set_ray(&mut ray, u, 1.0 - v);                         
+                    ray.intersect_tlas(&tlas);
+    
                     
-                    pixel[0] = (result.x * 255.0) as u8;
-                    pixel[1] = (result.x * 255.0) as u8;
-                    pixel[2] = (result.x * 255.0) as u8;
-                    pixel[3] = 255;
+                    let color = if ray.hit.t < 1e30f32 {
+                        //info!("{:?}", ray.hit.t);
+                        let c = 500f32 - (ray.hit.t * 42f32);
+                        vec3(c, c, c)
+                    } else {
+                        Vec3::ZERO
+                    };
+                    
+                    pixels[offset + 0] = (color.x) as u8;
+                    pixels[offset + 1] = (color.x) as u8;
+                    pixels[offset + 2] = (color.x) as u8;
+                    pixels[offset + 3] = 255;
+                }  
             });
 
             stats.ray_count = camera.width as f32 * camera.height as f32 * camera.samples as f32;

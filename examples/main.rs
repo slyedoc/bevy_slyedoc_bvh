@@ -24,8 +24,8 @@ fn main() {
         .add_system_set_to_stage(
             CoreStage::PostUpdate,
             SystemSet::new()
-            .after(BvhSystems::Camera)
-            .with_system(display_camera),
+                .after(BvhSystems::Camera)
+                .with_system(display_camera),
         )
         //.add_system(camera_gizmo)
         .run();
@@ -53,20 +53,19 @@ pub fn camera_gizmo(
         let start = camera.origin;
         let duration = 0.0;
 
+        // Draw frustum lines
+        let mut ray = Ray::default();
         for i in 0..4 {
             let u = if i % 2 == 0 { 0.0 } else { 1.0 };
             let v = if i < 2 { 0.0 } else { 1.0 };
-            let ray = camera.get_ray(u, v);
+            camera.set_ray(&mut ray, u, v);
             let end = camera.origin + (ray.direction * ray.t);
             lines.line(start, end, duration);
         }
     }
 }
 
-pub fn display_camera(
-    mut commands: Commands, 
-    mut camera: Query<(&BvhCamera), Added<BvhCamera>>
-) {
+pub fn display_camera(mut commands: Commands, mut camera: Query<(&BvhCamera), Added<BvhCamera>>) {
     for camera in camera.iter() {
         if let Some(image) = &camera.image {
             commands

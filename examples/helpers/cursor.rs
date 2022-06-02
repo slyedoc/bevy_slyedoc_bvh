@@ -57,7 +57,7 @@ fn move_cursor(
                 ray.intersect_tlas(&tlas);
 
                 // see if we hit
-                if let Some(_e) = ray.entity {
+                if ray.hit.t < 1e30f32 {
                     // we could do something with the entity here
                     cursor_trans.translation = ray.origin + ray.direction * ray.t;
                     cursor_vis.is_visible = true;

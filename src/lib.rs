@@ -41,8 +41,7 @@ pub mod prelude {
 const ROOT_NODE_IDX: usize = 0;
 const BINS: usize = 8;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[derive(SystemLabel)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, SystemLabel)]
 pub enum BvhSystems {
     Setup,
     Camera,
@@ -51,11 +50,9 @@ pub enum BvhSystems {
 pub struct BvhPlugin;
 impl Plugin for BvhPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<BvhStats>()
+        app.init_resource::<BvhStats>()
             .init_resource::<Tlas>()
             .register_inspectable::<Bvh>()
-            .register_inspectable::<BvhInstance>()
             .register_inspectable::<BvhCamera>()
             .register_inspectable::<Tlas>()
             .register_inspectable::<TlasNode>()
@@ -111,12 +108,7 @@ impl BvhPlugin {
             stats.tri_count += tris.len();
 
             let bvh_index = tlas.add_bvh(Bvh::new(tris));
-            tlas.add_instance(BvhInstance {
-                bvh_index,
-                entity: Some(e),
-                ..default()
-            });
-
+            tlas.add_instance(BvhInstance::new(e, bvh_index));
             commands.entity(e).remove::<BvhInit>();
         }
     }
@@ -155,11 +147,7 @@ impl BvhPlugin {
                     stats.tri_count += tris.len();
 
                     let bvh_index = tlas.add_bvh(Bvh::new(tris));
-                    tlas.add_instance(BvhInstance {
-                        bvh_index,
-                        entity: Some(e),
-                        ..default()
-                    });
+                    tlas.add_instance(BvhInstance::new(e, bvh_index));
                 }
             }
 
@@ -167,20 +155,17 @@ impl BvhPlugin {
         }
     }
 
-
-    // TODO: Add refit
+    // TODO: both of these update system are incomplete, for now we are rebuilding every frame
+    // for now working on speeding up ray intersection
+    // will come back to this
     pub fn update_bvh(mut query: Query<(&GlobalTransform)>, mut tlas: ResMut<Tlas>) {
         // moved fn into tlas self to since it needed 2 mutable refs within the tlas
         tlas.update_bvh(&query);
-        
     }
-
-    // TODO: Add refit and dont build every frame
+    
     pub fn update_tlas(mut query: Query<(&GlobalTransform)>, mut tlas: ResMut<Tlas>) {
-        // TODO: this is a hack, should only call once
         tlas.build();
     }
-
 }
 
 // Markers

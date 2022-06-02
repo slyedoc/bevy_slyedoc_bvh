@@ -11,12 +11,12 @@ This is very much work in progress and early days.
 
 Test if I can build a performant bounding volume hierarchy directly in bevy.
 
-And to test it use it as a CPU based raycast renderer.
-
-Warning: At the moment I wouldn't leave this running.
+And to test it out, use it for CPU raycast renderer.
 
 ## Notes
 
-I am leaving a lot of Jacco's optimization out at the moment, first focusing on getting everything working and readability.  For example, he doesn't use Vectors at all.
+I am leaving a lot of Jacco's optimization out at the moment, first focusing on getting everything working and reusable.  For example, he doesn't use Vectors at all to avoid allocating memory.  
+
+Also I am not using simd yet, want to learn glam better, also avoiding unions.
 
 The examples are more used to help me test and debug at the moment. For example use case checkout the [Cursor Plugin](./examples/helpers/cursor.rs)

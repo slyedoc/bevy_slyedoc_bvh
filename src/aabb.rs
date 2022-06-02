@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, };
 use bevy_inspector_egui::Inspectable;
 
 #[derive(Debug, Copy, Clone, Inspectable)]
@@ -18,13 +18,13 @@ impl Default for Aabb {
 
 impl Aabb {
     pub fn grow(&mut self, p: Vec3) {
-        self.bmin = self.bmin.min(p);
-        self.bmax = self.bmax.max(p);
+        self.bmin = self.bmin.min(p.into());
+        self.bmax = self.bmax.max(p.into());
     }
 
     pub fn grow_aabb(&mut self, b: &Aabb) {
-        self.grow(b.bmin);
-        self.grow(b.bmax);
+        self.grow(b.bmin.into());
+        self.grow(b.bmax.into());
     }
 
     pub fn area(&self) -> f32 {
