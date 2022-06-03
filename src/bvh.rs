@@ -22,7 +22,7 @@ impl BvhNode {
     }
 }
 
-#[derive(Inspectable)]
+#[derive(Debug, Inspectable)]
 pub struct BvhInstance {
     pub entity: Entity, 
     pub bvh_index: usize,

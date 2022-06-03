@@ -39,7 +39,7 @@ pub fn setup_cameras(mut commands: Commands) {
             ..default()
         })
         .insert(CameraController::default())
-        .insert(BvhCamera::new(128, 128, 45.0, 1.0, 1.0, 1));
+        .insert(BvhCamera::new(128, 128));
 }
 
 #[allow(dead_code)]

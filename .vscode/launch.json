@@ -26,15 +26,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug example 'nested_meshes'",
+            "name": "Debug example 'sponza'",
             "cargo": {
                 "args": [
                     "build",
-                    "--example=nested_meshes",
+                    "--example=sponza",
                     "--package=bevy_slyedoc_bvh"
                 ],
                 "filter": {
-                    "name": "nested_meshes",
+                    "name": "sponza",
                     "kind": "example"
                 }
             },
@@ -44,16 +44,53 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in example 'nested_meshes'",
+            "name": "Debug unit tests in example 'sponza'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--example=nested_meshes",
+                    "--example=sponza",
                     "--package=bevy_slyedoc_bvh"
                 ],
                 "filter": {
-                    "name": "nested_meshes",
+                    "name": "sponza",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'img'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=img",
+                    "--package=bevy_slyedoc_bvh"
+                ],
+                "filter": {
+                    "name": "img",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'img'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=img",
+                    "--package=bevy_slyedoc_bvh"
+                ],
+                "filter": {
+                    "name": "img",
                     "kind": "example"
                 }
             },
@@ -100,15 +137,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug example 'custom_cursor'",
+            "name": "Debug example 'clock_tower'",
             "cargo": {
                 "args": [
                     "build",
-                    "--example=custom_cursor",
+                    "--example=clock_tower",
                     "--package=bevy_slyedoc_bvh"
                 ],
                 "filter": {
-                    "name": "custom_cursor",
+                    "name": "clock_tower",
                     "kind": "example"
                 }
             },
@@ -118,16 +155,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in example 'custom_cursor'",
+            "name": "Debug unit tests in example 'clock_tower'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--example=custom_cursor",
+                    "--example=clock_tower",
                     "--package=bevy_slyedoc_bvh"
                 ],
                 "filter": {
-                    "name": "custom_cursor",
+                    "name": "clock_tower",
                     "kind": "example"
                 }
             },
@@ -203,6 +240,25 @@
                 "filter": {
                     "name": "bmr_intersect",
                     "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'bvh'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=bvh",
+                    "--package=bevy_slyedoc_bvh"
+                ],
+                "filter": {
+                    "name": "bvh",
+                    "kind": "bench"
                 }
             },
             "args": [],

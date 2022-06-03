@@ -11,7 +11,7 @@ This is very much work in progress and early days.
 
 Test if I can build a performant bounding volume hierarchy directly in bevy.
 
-And to test it out, use it for CPU raycast renderer.
+And to test it out, use it for a renderer.
 
 ## Notes
 

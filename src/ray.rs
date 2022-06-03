@@ -1,4 +1,5 @@
 use std::{arch::x86_64::*, mem::swap};
+use tracing::{debug, error, info, span, warn, Level};
 
 use crate::{
     prelude::BvhInstance,
@@ -89,6 +90,8 @@ impl Ray {
     // Moller Trumbore
     // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
     pub fn intersect_triangle(&mut self, tri: &Tri, tri_index: usize, entity: Entity) {
+        #[cfg(feature = "trace")]
+        let _span = info_span!("intersect_triangle").entered();
         let edge1 = tri.vertex1 - tri.vertex0;
         let edge2 = tri.vertex2 - tri.vertex0;
         let h = self.direction.cross(edge2);
@@ -120,6 +123,8 @@ impl Ray {
     }
 
     pub fn intersect_aabb(&self, bmin: Vec3, bmax: Vec3) -> f32 {
+        #[cfg(feature = "trace")]
+        let _span = info_span!("intersect_aabb").entered();
         let tx1 = (bmin.x - self.origin.x) * self.direction_inv.x;
         let tx2 = (bmax.x - self.origin.x) * self.direction_inv.x;
         let tmin = tx1.min(tx2);
@@ -140,6 +145,8 @@ impl Ray {
     }
 
     pub fn intersect_bvh(&mut self, bvh: &Bvh, entity: Entity) {
+        #[cfg(feature = "trace")]
+        let _span = info_span!("intersect_bvh").entered();
         let mut node = &bvh.nodes[0];
         let mut stack = Vec::with_capacity(64);
         loop {
@@ -177,6 +184,8 @@ impl Ray {
     }
 
     pub fn intersect_bvh_instance(&mut self, bvh_instance: &BvhInstance, bvhs: &[Bvh]) {
+        #[cfg(feature = "trace")]
+        let _span = info_span!("intersect_bvh_instance").entered();
         let bvh = &bvhs[bvh_instance.bvh_index];
         // backup ray and transform original
         let mut backup_ray = self.clone();
@@ -192,6 +201,8 @@ impl Ray {
     }
 
     pub fn intersect_tlas(&mut self, tlas: &Tlas) {
+        #[cfg(feature = "trace")]
+        let _span = info_span!("intersect_tlas").entered();
         let mut stack = Vec::<&TlasNode>::with_capacity(64);
         let mut node = &tlas.tlas_nodes[0];
         while true {

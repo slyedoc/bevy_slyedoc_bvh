@@ -14,6 +14,7 @@ use crate::{
     BvhInstance, BvhStats,
 };
 
+// TODO: Make this projection based
 #[derive(Component, Inspectable)]
 pub struct BvhCamera {
     pub width: u32,
@@ -36,11 +37,14 @@ impl BvhCamera {
     pub fn new(
         width: u32,
         height: u32,
-        vfov: f32, // vertical field of view
-        aperture: f32,
-        focus_dist: f32,
-        samples: u32,
     ) -> Self {
+
+        // TODO: after messing the params I am defualting more
+        let vfov: f32 = 45.0; // vertical field of view
+        let aperture: f32 = 1.0;
+        let focus_dist: f32 = 1.0;
+        let samples: u32 = 1;
+
         let aspect_ratio = width as f32 / height as f32;
         let theta = vfov * std::f32::consts::PI / 180.0;
         let half_height = (theta / 2.0).tan();

@@ -5,7 +5,7 @@ use bevy_inspector_egui::Inspectable;
 
 use crate::{prelude::Ray, Bvh, BvhInstance};
 
-#[derive(Default, Inspectable, Copy, Clone)]
+#[derive(Default, Debug, Inspectable, Copy, Clone)]
 pub struct TlasNode {
     pub aabb_min: Vec3,
     pub left_right: u32, // 2x16 bits
@@ -19,7 +19,7 @@ impl TlasNode {
     }
 }
 
-#[derive(Inspectable)]
+#[derive(Debug, Inspectable)]
 pub struct Tlas {
     pub tlas_nodes: Vec<TlasNode>,
     #[inspectable(ignore)]
@@ -52,12 +52,12 @@ impl Tlas {
         // reserve root node
         self.tlas_nodes.push(TlasNode::default());
 
-        let mut node_index = vec![0u32; self.blas.len()+1]; 
+        let mut node_index = vec![0u32; self.blas.len() + 1];
         let mut node_indices = self.blas.len() as i32;
         // assign a TLASleaf node to each BLAS
 
-        for (i, b) in self.blas.iter().enumerate() {   
-            node_index[i] = i as u32 + 1;         
+        for (i, b) in self.blas.iter().enumerate() {
+            node_index[i] = i as u32 + 1;
             self.tlas_nodes.push(TlasNode {
                 aabb_min: b.bounds.bmin,
                 aabb_max: b.bounds.bmax,
@@ -69,29 +69,28 @@ impl Tlas {
         // use agglomerative clustering to build the TLAS
         let mut a = 0i32;
         let mut b = self.find_best_match(&node_index, node_indices, a);
-        while node_indices > 1
-         {
-         	let c = self.find_best_match( &node_index, node_indices, b);
-         	if a == c {
-         		let mut nodeIdxA = node_index[a as usize];
+        while node_indices > 1 {
+            let c = self.find_best_match(&node_index, node_indices, b);
+            if a == c {
+                let mut nodeIdxA = node_index[a as usize];
                 let mut nodeIdxB = node_index[b as usize];
-         		let nodeA = &self.tlas_nodes[nodeIdxA as usize];
-         		let nodeB = &self.tlas_nodes[nodeIdxB as usize];
-         		let newNode = &self.tlas_nodes.push(TlasNode {
-                    aabb_min: nodeA.aabb_min.min( nodeB.aabb_min ),
-                    aabb_max: nodeA.aabb_max.max( nodeB.aabb_max),
-                    left_right: nodeIdxA + (nodeIdxB << 16),                    
+                let nodeA = &self.tlas_nodes[nodeIdxA as usize];
+                let nodeB = &self.tlas_nodes[nodeIdxB as usize];
+                let newNode = &self.tlas_nodes.push(TlasNode {
+                    aabb_min: nodeA.aabb_min.min(nodeB.aabb_min),
+                    aabb_max: nodeA.aabb_max.max(nodeB.aabb_max),
+                    left_right: nodeIdxA + (nodeIdxB << 16),
                     blas: 0,
                 });
                 node_index[a as usize] = self.tlas_nodes.len() as u32 - 1;
                 node_index[b as usize] = node_index[node_indices as usize - 1];
                 node_indices -= 1;
-         		b = self.find_best_match(&node_index, node_indices, a );
-         	} else {
+                b = self.find_best_match(&node_index, node_indices, a);
+            } else {
                 a = b;
                 b = c;
-             } 
-         }
+            }
+        }
         self.tlas_nodes[0] = self.tlas_nodes[node_index[a as usize] as usize];
     }
 
@@ -117,7 +116,8 @@ impl Tlas {
         return best_b;
     }
 
-    pub fn update_bvh(&mut self, query: &Query<(&GlobalTransform)>) {
+    #[inline(always)]
+    pub fn update_bvh_instances(&mut self, query: &Query<(&GlobalTransform)>) {
         for mut instance in &mut self.blas {
             let bvh = &self.bvhs[instance.bvh_index];
             if let Ok(trans) = query.get(instance.entity) {
@@ -125,4 +125,6 @@ impl Tlas {
             }
         }
     }
+
+
 }

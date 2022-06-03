@@ -161,7 +161,7 @@ impl BvhPlugin {
     // will come back to this
     pub fn update_bvh(mut query: Query<(&GlobalTransform)>, mut tlas: ResMut<Tlas>) {
         // moved fn into tlas self to since it needed 2 mutable refs within the tlas
-        tlas.update_bvh(&query);
+        tlas.update_bvh_instances(&query);
     }
     
     pub fn update_tlas(mut query: Query<(&GlobalTransform)>, mut tlas: ResMut<Tlas>) {
@@ -310,3 +310,6 @@ pub fn parse_mesh(mesh: &Mesh) -> Vec<Tri> {
         _ => todo!(),
     }
 }
+
+
+
