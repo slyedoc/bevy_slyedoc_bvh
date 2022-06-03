@@ -58,7 +58,7 @@ pub fn camera_gizmo(
             let u = if i % 2 == 0 { 0.0 } else { 1.0 };
             let v = if i < 2 { 0.0 } else { 1.0 };
             camera.set_ray(&mut ray, u, v);
-            let end = camera.origin + (ray.direction * ray.t);
+            let end = camera.origin + (ray.direction * ray.distance);
             lines.line(start, end, duration);
         }
     }

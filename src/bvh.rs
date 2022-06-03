@@ -33,7 +33,7 @@ pub struct BvhInstance {
 impl BvhInstance {
     pub fn new(entity: Entity, bvh_index: usize) -> Self {
         Self {
-            entity: entity,
+            entity,
             bvh_index,
             inv_trans: Mat4::default(),
             bounds: Aabb::default(),

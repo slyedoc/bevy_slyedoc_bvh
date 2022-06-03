@@ -18,13 +18,13 @@ impl Default for Aabb {
 
 impl Aabb {
     pub fn grow(&mut self, p: Vec3) {
-        self.bmin = self.bmin.min(p.into());
-        self.bmax = self.bmax.max(p.into());
+        self.bmin = self.bmin.min(p);
+        self.bmax = self.bmax.max(p);
     }
 
     pub fn grow_aabb(&mut self, b: &Aabb) {
-        self.grow(b.bmin.into());
-        self.grow(b.bmax.into());
+        self.grow(b.bmin);
+        self.grow(b.bmax);
     }
 
     pub fn area(&self) -> f32 {

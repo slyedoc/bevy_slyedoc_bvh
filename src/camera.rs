@@ -1,18 +1,6 @@
-use bevy::{
-    math::{vec3, Vec4Swizzles},
-    prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
-    transform,
-    utils::{Instant, hashbrown::hash_set::Intersection},
-};
+use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
-use rand::prelude::*;
-use rayon::prelude::*;
-
-use crate::{
-    prelude::{Aabb, Ray, Hit},
-    BvhInstance, BvhStats,
-};
+use crate::ray::Ray;
 
 // TODO: Make this projection based
 #[derive(Component, Inspectable)]
@@ -34,15 +22,10 @@ pub struct BvhCamera {
 }
 
 impl BvhCamera {
-    pub fn new(
-        width: u32,
-        height: u32,
-    ) -> Self {
-
+    pub fn new(width: u32, height: u32) -> Self {
         // TODO: after messing the params I am defualting more
         let vfov: f32 = 45.0; // vertical field of view
-        let aperture: f32 = 1.0;
-        let focus_dist: f32 = 1.0;
+        let focus_dist: f32 = 1.0; // TODO: not using this yet
         let samples: u32 = 1;
 
         let aspect_ratio = width as f32 / height as f32;
@@ -73,8 +56,6 @@ impl BvhCamera {
     pub fn update(&mut self, trans: &GlobalTransform) {
         self.origin = trans.translation;
 
-        let look_at = self.origin + trans.forward();
-
         self.w = -trans.forward();
         self.u = trans.right();
         self.v = trans.up();
@@ -88,9 +69,11 @@ impl BvhCamera {
 
     pub fn set_ray(&self, ray: &mut Ray, u: f32, v: f32) {
         ray.origin = self.origin;
-        ray.direction = (self.lower_left_corner + u * self.horizontal + v * self.vertical - self.origin).normalize();        
+        ray.direction = (self.lower_left_corner + u * self.horizontal + v * self.vertical
+            - self.origin)
+            .normalize();
         ray.direction_inv = ray.direction.recip();
-        ray.t = 1e30f32;
+        ray.distance = 1e30f32;
         ray.hit = None;
     }
 }

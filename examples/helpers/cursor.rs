@@ -4,7 +4,6 @@ pub struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
-        
         app.add_startup_system(load_cursor)
             .add_system_to_stage(CoreStage::PostUpdate, move_cursor.after(BvhSystems::Setup));
     }
@@ -44,7 +43,6 @@ fn move_cursor(
     mut cusror_query: Query<(&mut Transform, &mut Visibility), With<Cursor>>,
     tlas: Res<Tlas>,
 ) {
-
     if let Some(window) = windows.get_primary() {
         if let Some(mouse_pos) = window.cursor_position() {
             if let Ok((trans, cam)) = camera_query.get_single() {
@@ -54,13 +52,10 @@ fn move_cursor(
                 // create a ray
                 let mut ray = Ray::from_screenspace(mouse_pos, window, cam, trans);
 
-                // test ray agaist tlas
-                ;
-
-                // see if we hit
+                // test ray agaist tlas and see if we hit
                 if let Some(hit) = ray.intersect_tlas(&tlas) {
                     // we could do something with the entity here
-                    cursor_trans.translation = ray.origin + ray.direction * hit.t;
+                    cursor_trans.translation = ray.origin + ray.direction * hit.distance;
                     cursor_vis.is_visible = true;
                 } else {
                     cursor_vis.is_visible = false;

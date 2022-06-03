@@ -78,8 +78,8 @@ fn tlas_intersection(criterion: &mut Criterion) {
                         }
                     }
             
-                    // img.save(format!("out/{}.png", name))
-                    //     .unwrap();    
+                    //  img.save(format!("out/{}.png", name))
+                    //      .unwrap();    
                     black_box(img);
                     
             });

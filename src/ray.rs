@@ -1,5 +1,4 @@
-use std::{arch::x86_64::*, mem::swap};
-use tracing::{debug, error, info, span, warn, Level};
+use std::mem::swap;
 
 use crate::{
     prelude::BvhInstance,
@@ -11,8 +10,8 @@ use bevy::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Hit {
-    pub t: f32, // intersection distance along ray
-    pub u: f32, // barycentric coordinates of the intersection
+    pub distance: f32, // intersection distance along ray, often seen as t
+    pub u: f32,        // barycentric coordinates of the intersection
     pub v: f32,
     // We are using more bits here than in tutorial
     pub tri_index: usize,
@@ -22,7 +21,7 @@ pub struct Hit {
 impl Default for Hit {
     fn default() -> Self {
         Self {
-            t: 1e30f32,
+            distance: 1e30f32,
             u: Default::default(),
             v: Default::default(),
             tri_index: Default::default(),
@@ -37,7 +36,7 @@ pub struct Ray {
     pub origin: Vec3,
     pub direction: Vec3, // Should be normalized
     pub direction_inv: Vec3,
-    pub t: f32,
+    pub distance: f32,
     pub hit: Option<Hit>,
 }
 
@@ -46,7 +45,7 @@ impl Default for Ray {
         Ray {
             origin: Vec3::ZERO,
             direction: Vec3::Z,
-            t: 1e30f32,
+            distance: 1e30f32,
             direction_inv: Vec3::ZERO,
             hit: None,
         }
@@ -92,7 +91,7 @@ impl Ray {
             origin: cursor_pos_near,
             direction: ray_direction,
             direction_inv: ray_direction.recip(),
-            t: 1e30,
+            distance: 1e30,
             hit: None,
         }
     }
@@ -125,9 +124,9 @@ impl Ray {
         // TODO: The option part here feels sloppy
         if t > 0.0001 {
             if let Some(hit) = self.hit {
-                if t < hit.t {
+                if t < hit.distance {
                     self.hit = Some(Hit {
-                        t,
+                        distance: t,
                         u,
                         v,
                         tri_index,
@@ -136,7 +135,7 @@ impl Ray {
                 }
             } else {
                 self.hit = Some(Hit {
-                    t,
+                    distance: t,
                     u,
                     v,
                     tri_index,
@@ -162,11 +161,11 @@ impl Ray {
         let tmin = tmin.max(tz1.min(tz2));
         let tmax = tmax.min(tz1.max(tz2));
         let t_hit = if let Some(hit) = self.hit {
-            hit.t
+            hit.distance
         } else {
             1e30f32
         };
-        
+
         if tmax >= tmin && tmin < t_hit && tmax > 0.0 {
             tmin
         } else {
@@ -218,7 +217,7 @@ impl Ray {
         let _span = info_span!("intersect_bvh_instance").entered();
         let bvh = &bvhs[bvh_instance.bvh_index];
         // backup ray and transform original
-        let mut backup_ray = self.clone();
+        let mut backup_ray = *self;
 
         self.origin = bvh_instance.inv_trans.transform_point3(self.origin);
         self.direction = bvh_instance.inv_trans.transform_vector3(self.direction);
@@ -235,7 +234,7 @@ impl Ray {
         let _span = info_span!("intersect_tlas").entered();
         let mut stack = Vec::<&TlasNode>::with_capacity(64);
         let mut node = &tlas.tlas_nodes[0];
-        while true {
+        loop {
             if node.is_leaf() {
                 self.intersect_bvh_instance(&tlas.blas[node.blas as usize], &tlas.bvhs);
                 if stack.is_empty() {
@@ -257,7 +256,7 @@ impl Ray {
                 if stack.is_empty() {
                     break;
                 } else {
-                    node = &stack.pop().unwrap();
+                    node = stack.pop().unwrap();
                 }
             } else {
                 node = child1;

@@ -1,9 +1,7 @@
-use std::mem::swap;
-
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 
-use crate::{prelude::Ray, Bvh, BvhInstance};
+use crate::{ Bvh, BvhInstance};
 
 #[derive(Default, Debug, Inspectable, Copy, Clone)]
 pub struct TlasNode {
@@ -72,14 +70,14 @@ impl Tlas {
         while node_indices > 1 {
             let c = self.find_best_match(&node_index, node_indices, b);
             if a == c {
-                let mut nodeIdxA = node_index[a as usize];
-                let mut nodeIdxB = node_index[b as usize];
-                let nodeA = &self.tlas_nodes[nodeIdxA as usize];
-                let nodeB = &self.tlas_nodes[nodeIdxB as usize];
-                let newNode = &self.tlas_nodes.push(TlasNode {
-                    aabb_min: nodeA.aabb_min.min(nodeB.aabb_min),
-                    aabb_max: nodeA.aabb_max.max(nodeB.aabb_max),
-                    left_right: nodeIdxA + (nodeIdxB << 16),
+                let node_index_a = node_index[a as usize];
+                let node_index_b = node_index[b as usize];
+                let node_a = &self.tlas_nodes[node_index_a as usize];
+                let node_b = &self.tlas_nodes[node_index_b as usize];
+                self.tlas_nodes.push(TlasNode {
+                    aabb_min: node_a.aabb_min.min(node_b.aabb_min),
+                    aabb_max: node_a.aabb_max.max(node_b.aabb_max),
+                    left_right: node_index_a + (node_index_b << 16),
                     blas: 0,
                 });
                 node_index[a as usize] = self.tlas_nodes.len() as u32 - 1;
@@ -94,10 +92,10 @@ impl Tlas {
         self.tlas_nodes[0] = self.tlas_nodes[node_index[a as usize] as usize];
     }
 
-    pub fn find_best_match(&self, list: &[u32], N: i32, a: i32) -> i32 {
+    pub fn find_best_match(&self, list: &[u32], n: i32, a: i32) -> i32 {
         let mut smallest = 1e30f32;
         let mut best_b = -1i32;
-        for b in 0..N {
+        for b in 0..n {
             if b != a {
                 let bmax = self.tlas_nodes[list[a as usize] as usize]
                     .aabb_max
@@ -106,19 +104,19 @@ impl Tlas {
                     .aabb_min
                     .min(self.tlas_nodes[list[b as usize] as usize].aabb_min);
                 let e = bmax - bmin;
-                let surfaceArea = e.x * e.y + e.y * e.z + e.z * e.x;
-                if surfaceArea < smallest {
-                    smallest = surfaceArea;
+                let surface_area = e.x * e.y + e.y * e.z + e.z * e.x;
+                if surface_area < smallest {
+                    smallest = surface_area;
                     best_b = b;
                 }
             }
         }
-        return best_b;
+        best_b
     }
 
     #[inline(always)]
-    pub fn update_bvh_instances(&mut self, query: &Query<(&GlobalTransform)>) {
-        for mut instance in &mut self.blas {
+    pub fn update_bvh_instances(&mut self, query: &Query<&GlobalTransform>) {
+        for instance in &mut self.blas {
             let bvh = &self.bvhs[instance.bvh_index];
             if let Ok(trans) = query.get(instance.entity) {
                 instance.update(trans, &bvh.nodes[0]);
