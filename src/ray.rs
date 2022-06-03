@@ -98,6 +98,7 @@ impl Ray {
 
     // Moller Trumbore
     // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
+    #[inline(always)]
     pub fn intersect_triangle(&mut self, tri: &Tri, tri_index: usize, entity: Entity) {
         #[cfg(feature = "trace")]
         let _span = info_span!("intersect_triangle").entered();
@@ -105,9 +106,13 @@ impl Ray {
         let edge2 = tri.vertex2 - tri.vertex0;
         let h = self.direction.cross(edge2);
         let a = edge1.dot(h);
-        if a > -0.0001 && a < 0.0001 {
+        // if a > -0.00001 && a < 0.00001 {
+        //     return;
+        // }
+        if a.abs() < 0.00001 { 
             return;
-        };
+        }
+
         // ray parallel to triangle
         let f = 1.0 / a;
         let s = self.origin - tri.vertex0;

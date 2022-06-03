@@ -114,7 +114,7 @@ impl Tlas {
         best_b
     }
 
-    #[inline(always)]
+
     pub fn update_bvh_instances(&mut self, query: &Query<&GlobalTransform>) {
         for instance in &mut self.blas {
             let bvh = &self.bvhs[instance.bvh_index];

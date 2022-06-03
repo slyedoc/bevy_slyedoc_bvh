@@ -68,8 +68,7 @@ fn main() {
 
     println!("BvhNode size: {}", std::mem::size_of::<BvhNode>());
     println!("TlasNode size: {}", std::mem::size_of::<TlasNode>());
-    println!("Ray size: {}", std::mem::size_of::<Ray>());
-
+    println!("Ray size: {}", std::mem::size_of::<Ray>());    
     {
         #[cfg(feature = "trace")]
         let _span = info_span!("build tlas").entered();
