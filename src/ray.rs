@@ -38,7 +38,7 @@ pub struct Ray {
     pub direction: Vec3, // Should be normalized
     pub direction_inv: Vec3,
     pub t: f32,
-    pub hit: Hit,
+    pub hit: Option<Hit>,
 }
 
 impl Default for Ray {
@@ -48,12 +48,22 @@ impl Default for Ray {
             direction: Vec3::Z,
             t: 1e30f32,
             direction_inv: Vec3::ZERO,
-            hit: Hit::default(),
+            hit: None,
         }
     }
 }
 
 impl Ray {
+    pub fn new(origin: Vec3, direction: Vec3) -> Self {
+        let direction_inv = direction.recip();
+        Self {
+            origin,
+            direction,
+            direction_inv,
+            ..Default::default()
+        }
+    }
+
     // TODO: This is from bevy_mod_raycast, need to do more reading up on ndc
     pub fn from_screenspace(
         cursor_pos_screen: Vec2,
@@ -83,7 +93,7 @@ impl Ray {
             direction: ray_direction,
             direction_inv: ray_direction.recip(),
             t: 1e30,
-            hit: Hit::default(),
+            hit: None,
         }
     }
 
@@ -113,12 +123,26 @@ impl Ray {
         }
         let t = f * edge2.dot(q);
         // TODO: The option part here feels sloppy
-        if t > 0.0001 && t < self.hit.t {
-            self.hit.t = t;
-            self.hit.u = u;
-            self.hit.v = v;
-            self.hit.tri_index = tri_index;
-            self.hit.entity = entity;
+        if t > 0.0001 {
+            if let Some(hit) = self.hit {
+                if t < hit.t {
+                    self.hit = Some(Hit {
+                        t,
+                        u,
+                        v,
+                        tri_index,
+                        entity,
+                    });
+                }
+            } else {
+                self.hit = Some(Hit {
+                    t,
+                    u,
+                    v,
+                    tri_index,
+                    entity,
+                });
+            }
         }
     }
 
@@ -137,7 +161,13 @@ impl Ray {
         let tz2 = (bmax.z - self.origin.z) * self.direction_inv.z;
         let tmin = tmin.max(tz1.min(tz2));
         let tmax = tmax.min(tz1.max(tz2));
-        if tmax >= tmin && tmin < self.hit.t && tmax > 0.0 {
+        let t_hit = if let Some(hit) = self.hit {
+            hit.t
+        } else {
+            1e30f32
+        };
+        
+        if tmax >= tmin && tmin < t_hit && tmax > 0.0 {
             tmin
         } else {
             1e30f32
@@ -200,7 +230,7 @@ impl Ray {
         *self = backup_ray;
     }
 
-    pub fn intersect_tlas(&mut self, tlas: &Tlas) {
+    pub fn intersect_tlas(&mut self, tlas: &Tlas) -> Option<Hit> {
         #[cfg(feature = "trace")]
         let _span = info_span!("intersect_tlas").entered();
         let mut stack = Vec::<&TlasNode>::with_capacity(64);
@@ -236,5 +266,6 @@ impl Ray {
                 }
             }
         }
+        self.hit
     }
 }

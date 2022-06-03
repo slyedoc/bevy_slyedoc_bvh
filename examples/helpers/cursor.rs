@@ -55,12 +55,12 @@ fn move_cursor(
                 let mut ray = Ray::from_screenspace(mouse_pos, window, cam, trans);
 
                 // test ray agaist tlas
-                ray.intersect_tlas(&tlas);
+                ;
 
                 // see if we hit
-                if ray.hit.t < 1e30f32 {
+                if let Some(hit) = ray.intersect_tlas(&tlas) {
                     // we could do something with the entity here
-                    cursor_trans.translation = ray.origin + ray.direction * ray.hit.t;
+                    cursor_trans.translation = ray.origin + ray.direction * hit.t;
                     cursor_vis.is_visible = true;
                 } else {
                     cursor_vis.is_visible = false;

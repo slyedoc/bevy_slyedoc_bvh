@@ -91,6 +91,6 @@ impl BvhCamera {
         ray.direction = (self.lower_left_corner + u * self.horizontal + v * self.vertical - self.origin).normalize();        
         ray.direction_inv = ray.direction.recip();
         ray.t = 1e30f32;
-        ray.hit = Hit::default();
+        ray.hit = None;
     }
 }

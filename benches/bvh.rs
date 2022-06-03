@@ -68,9 +68,8 @@ fn tlas_intersection(criterion: &mut Criterion) {
                                 // TODO: image still reversed
                                 1.0 - (y as f32 / camera.height as f32),
                             );
-                            ray.intersect_tlas(&tlas);
-                            let color = if ray.hit.t < 1e30f32 {
-                                let c = vec3(ray.hit.u, ray.hit.v, 1.0 - (ray.hit.u + ray.hit.v)) * 255.0;
+                            let color = if let Some(hit) = ray.intersect_tlas(&tlas) {
+                                let c = vec3(hit.u, hit.v, 1.0 - (hit.u + hit.v)) * 255.0;
                                 Rgb([c.x as u8, c.y as u8, c.z as u8])                    
                             } else {
                                 Rgb([0, 0, 0])
