@@ -15,8 +15,6 @@ And to test it out, use it for a renderer.
 
 ## Notes
 
-I am leaving a lot of Jacco's optimization out at the moment, first focusing on getting everything working and reusable.  For example, he doesn't use Vectors at all to avoid allocating memory.  
+I am leaving a lot of Jacco's optimization out at the moment, first focusing on getting everything working and reusable.  For example, he doesn't use vectors.  
 
-Also I am not using simd yet, want to learn glam better, also avoiding unions.
-
-The examples are more used to help me test and debug at the moment. For example use case checkout the [Cursor Plugin](./examples/helpers/cursor.rs)
+The examples are currently used to help me test and debug at the moment. For example use case checkout the [Cursor Plugin](./examples/helpers/cursor.rs)

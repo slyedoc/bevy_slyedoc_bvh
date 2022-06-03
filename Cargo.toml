@@ -3,6 +3,12 @@ name = "bevy_slyedoc_bvh"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["lib"] 
+# This is here based on https://github.com/bheisler/criterion.rs/issues/193
+# had issues saving baselines
+bench = false
+
 # Enable only a small amount of optimization in debug mode
 [profile.dev]
 opt-level = 1
@@ -19,10 +25,7 @@ default = []
 trace = []
 aabb = []
 
-# This is here based on https://github.com/bheisler/criterion.rs/issues/193
-# had issues saving baselines
-[lib]
-bench = false
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

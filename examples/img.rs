@@ -77,7 +77,7 @@ fn main() {
     }
 
     {
-        for size in [256, 2048] {
+        for size in [512, 2048] {
             #[cfg(feature = "trace")]
             let _span = info_span!("render image").entered();
             let mut camera = BvhCamera::new(size, size);

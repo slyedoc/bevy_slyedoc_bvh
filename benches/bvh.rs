@@ -65,24 +65,29 @@ fn tlas_intersection(criterion: &mut Criterion) {
 
                 let mut img = RgbImage::new(camera.width, camera.height);
                 let mut ray = Ray::default();
-                for y in 0..camera.height {
-                    for x in 0..camera.width {
-                        camera.set_ray(
-                            &mut ray,
-                            x as f32 / camera.width as f32,
-                            // TODO: image still reversed
-                            1.0 - (y as f32 / camera.height as f32),
-                        );
-                        let color = if let Some(hit) = ray.intersect_tlas(&tlas) {
-                            let c = vec3(hit.u, hit.v, 1.0 - (hit.u + hit.v)) * 255.0;
-                            Rgb([c.x as u8, c.y as u8, c.z as u8])
-                        } else {
-                            Rgb([0, 0, 0])
-                        };
-                        img[(x, y)] = color;
+                for grid_x in 0..8 {
+                    for grid_y in 0..8 {
+                        for u in 0..(camera.width / 8) {
+                            for v in 0..(camera.height / 8) {
+                                let x = (grid_x * camera.width / 8) + u;
+                                let y = (grid_y * camera.height / 8) + v;
+                                camera.set_ray(
+                                    &mut ray,
+                                    x as f32 / camera.width as f32,
+                                    // TODO: image still reversed
+                                    1.0 - (y as f32 / camera.height as f32),
+                                );
+                                let color = if let Some(hit) = ray.intersect_tlas(&tlas) {
+                                    let c = vec3(hit.u, hit.v, 1.0 - (hit.u + hit.v)) * 255.0;
+                                    Rgb([c.x as u8, c.y as u8, c.z as u8])
+                                } else {
+                                    Rgb([0, 0, 0])
+                                };
+                                img[(x, y)] = color;
+                            }
+                        }
                     }
                 }
-
                 #[cfg(feature = "save")]
                 img.save(format!("out/{}.png", name)).unwrap();
 
