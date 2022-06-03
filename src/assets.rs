@@ -1,39 +1,6 @@
 use bevy::{prelude::*, math::vec3};
-
 use rand::Rng;
-use std::fs;
-
 use crate::Tri;
-
-pub fn load_tri_file(file: impl Into<String>) -> Vec<Tri> {
-    let filename = file.into();
-    fs::read_to_string(filename)
-        .expect("Something went wrong reading the file")
-        .split('\n')
-        .filter(|line| !line.is_empty() && !line.starts_with("999"))
-        .map(|line| {
-            let parts: Vec<&str> = line.split(' ').collect();
-
-            Tri::new(
-                vec3(
-                    parts[0].parse::<f32>().unwrap(),
-                    parts[1].parse::<f32>().unwrap(),
-                    parts[2].parse::<f32>().unwrap(),
-                ),
-                vec3(
-                    parts[3].parse::<f32>().unwrap(),
-                    parts[4].parse::<f32>().unwrap(),
-                    parts[5].parse::<f32>().unwrap(),
-                ),
-                vec3(
-                    parts[6].parse::<f32>().unwrap(),
-                    parts[7].parse::<f32>().unwrap(),
-                    parts[8].parse::<f32>().unwrap(),
-                ),
-            )
-        })
-        .collect::<Vec<_>>()
-}
 
 // generate random triangles
 #[allow(dead_code)]
@@ -52,6 +19,7 @@ pub fn gen_random_triangles(size: usize, rng: &mut impl Rng) -> Vec<Tri> {
         .collect::<Vec<_>>()
 }
 
+// TODO: pretty sure vec3 already has this
 fn random_vec3(rng: &mut impl Rng) -> Vec3 {
     vec3(
         rng.gen_range(-1.0..=1.0),

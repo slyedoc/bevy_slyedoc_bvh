@@ -1,27 +1,32 @@
+use bevy::{asset::LoadState, math::vec3, prelude::*, transform::TransformSystem};
 use bevy_inspector_egui::prelude::*;
-mod aabb;
-mod ray;
-use aabb::*;
-mod tri;
-use tri::*;
+
 mod assets;
+mod aabb;
+use aabb::*;
 mod bvh;
 use bvh::*;
 mod camera;
-mod tlas;
-use bevy::{asset::LoadState, math::vec3, prelude::*, transform::TransformSystem};
 use camera::*;
-use std::time::Duration;
+mod ray;
+mod tri;
+use tri::*;
+mod tlas;
 use tlas::*;
+use std::time::Duration;
 
 pub mod prelude {
     pub use crate::{
-        aabb::*, assets::*, bvh::*, camera::*, ray::*, tlas::*, tri::*, BvhInit, BvhPlugin,
-        BvhSystems,
+        aabb::Aabb, assets::gen_random_triangles, bvh::*, camera::*, ray::*, tlas::*, tri::*,
+        BvhInit, BvhPlugin, BvhSystems,
     };
 }
 
-const BINS: usize = 8;
+pub fn test() {
+    info!("test");
+}
+
+const BIN_COUNT: usize = 8;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, SystemLabel)]
 pub enum BvhSystems {

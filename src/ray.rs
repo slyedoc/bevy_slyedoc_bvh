@@ -105,10 +105,7 @@ impl Ray {
         let edge1 = tri.vertex1 - tri.vertex0;
         let edge2 = tri.vertex2 - tri.vertex0;
         let h = self.direction.cross(edge2);
-        let a = edge1.dot(h);
-        // if a > -0.00001 && a < 0.00001 {
-        //     return;
-        // }
+        let a = edge1.dot(h);  
         if a.abs() < 0.00001 { 
             return;
         }

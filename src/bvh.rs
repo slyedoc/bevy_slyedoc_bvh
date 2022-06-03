@@ -1,10 +1,10 @@
-use crate::{prelude::*, BINS};
-use bevy::{prelude::*, math::vec3, reflect::TypeUuid};
+use crate::{aabb::Aabb, tri::Tri, BIN_COUNT};
+use bevy::{math::vec3, prelude::*, reflect::TypeUuid};
 use bevy_inspector_egui::Inspectable;
 
 #[derive(Default, Debug, Clone, Inspectable, Copy)]
 pub struct BvhNode {
-    pub aabb: Aabb,    
+    pub aabb: Aabb,
     pub left_first: u32,
     pub tri_count: u32,
 }
@@ -23,7 +23,7 @@ impl BvhNode {
 
 #[derive(Debug, Inspectable)]
 pub struct BvhInstance {
-    pub entity: Entity, 
+    pub entity: Entity,
     pub bvh_index: usize,
     pub inv_trans: Mat4,
     pub bounds: Aabb,
@@ -77,7 +77,7 @@ impl Bvh {
                 nodes.push(BvhNode {
                     left_first: 0,
                     tri_count: count,
-                    aabb: Aabb::default(),                    
+                    aabb: Aabb::default(),
                 });
                 nodes.push(BvhNode {
                     left_first: 0,
@@ -198,12 +198,12 @@ impl Bvh {
                 continue;
             }
             // populate bins
-            let mut bin = [Bin::default(); BINS];
-            let mut scale = BINS as f32 / (bounds_max - bounds_min);
+            let mut bin = [Bin::default(); BIN_COUNT];
+            let mut scale = BIN_COUNT as f32 / (bounds_max - bounds_min);
             for i in 0..node.tri_count {
                 let triangle = &self.tris[self.triangle_indexs[(node.left_first + i) as usize]];
                 let bin_idx =
-                    (BINS - 1).min(((triangle.centroid[a] - bounds_min) * scale) as usize);
+                    (BIN_COUNT - 1).min(((triangle.centroid[a] - bounds_min) * scale) as usize);
                 bin[bin_idx].tri_count += 1;
                 bin[bin_idx].bounds.grow(triangle.vertex0);
                 bin[bin_idx].bounds.grow(triangle.vertex1);
@@ -211,28 +211,28 @@ impl Bvh {
             }
 
             // gather data for the BINS - 1 planes between the bins
-            let mut left_area = [0.0f32; BINS - 1];
-            let mut right_area = [0.0f32; BINS - 1];
-            let mut left_count = [0u32; BINS - 1];
-            let mut right_count = [0u32; BINS - 1];
+            let mut left_area = [0.0f32; BIN_COUNT - 1];
+            let mut right_area = [0.0f32; BIN_COUNT - 1];
+            let mut left_count = [0u32; BIN_COUNT - 1];
+            let mut right_count = [0u32; BIN_COUNT - 1];
             let mut left_box = Aabb::default();
             let mut right_box = Aabb::default();
             let mut left_sum = 0u32;
             let mut right_sum = 0u32;
-            for i in 0..(BINS - 1) {
+            for i in 0..(BIN_COUNT - 1) {
                 left_sum += bin[i].tri_count;
                 left_count[i] = left_sum;
                 left_box.grow_aabb(&bin[i].bounds);
                 left_area[i] = left_box.area();
-                right_sum += bin[BINS - 1 - i].tri_count;
-                right_count[BINS - 2 - i] = right_sum;
-                right_box.grow_aabb(&bin[BINS - 1 - i].bounds);
-                right_area[BINS - 2 - i] = right_box.area();
+                right_sum += bin[BIN_COUNT - 1 - i].tri_count;
+                right_count[BIN_COUNT - 2 - i] = right_sum;
+                right_box.grow_aabb(&bin[BIN_COUNT - 1 - i].bounds);
+                right_area[BIN_COUNT - 2 - i] = right_box.area();
             }
 
             // calculate SAH cost for the 7 planes
-            scale = (bounds_max - bounds_min) / BINS as f32;
-            for i in 0..BINS - 1 {
+            scale = (bounds_max - bounds_min) / BIN_COUNT as f32;
+            for i in 0..BIN_COUNT - 1 {
                 let plane_cost =
                     left_count[i] as f32 * left_area[i] + right_count[i] as f32 * right_area[i];
                 if plane_cost < best_cost {
