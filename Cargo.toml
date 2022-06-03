@@ -17,6 +17,7 @@ lto = "thin"
 [features]
 default = []
 trace = []
+aabb = []
 
 # This is here based on https://github.com/bheisler/criterion.rs/issues/193
 # had issues saving baselines

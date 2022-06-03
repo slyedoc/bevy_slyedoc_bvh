@@ -10,6 +10,7 @@ use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 
 
+
 #[cfg(feature = "trace")]
 use tracing::{info_span};
 #[cfg(feature = "trace")]
@@ -65,6 +66,10 @@ fn main() {
         }
     }
 
+    println!("BvhNode size: {}", std::mem::size_of::<BvhNode>());
+    println!("TlasNode size: {}", std::mem::size_of::<TlasNode>());
+    println!("Ray size: {}", std::mem::size_of::<Ray>());
+
     {
         #[cfg(feature = "trace")]
         let _span = info_span!("build tlas").entered();
@@ -73,7 +78,7 @@ fn main() {
     }
 
     {
-        for size in [64 , 128] {
+        for size in [256, 2048] {
             #[cfg(feature = "trace")]
             let _span = info_span!("render image").entered();
             let mut camera = BvhCamera::new(size, size);

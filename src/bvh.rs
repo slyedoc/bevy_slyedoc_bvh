@@ -4,8 +4,7 @@ use bevy_inspector_egui::Inspectable;
 
 #[derive(Default, Debug, Clone, Inspectable, Copy)]
 pub struct BvhNode {
-    pub aabb_min: Vec3,
-    pub aabb_max: Vec3,
+    pub aabb: Aabb,    
     pub left_first: u32,
     pub tri_count: u32,
 }
@@ -16,7 +15,7 @@ impl BvhNode {
     }
 
     pub fn calculate_cost(&self) -> f32 {
-        let e = self.aabb_max - self.aabb_min; // extent of the node
+        let e = self.aabb.bmax - self.aabb.bmin; // extent of the node
         let surface_area = e.x * e.y + e.y * e.z + e.z * e.x;
         self.tri_count as f32 * surface_area
     }
@@ -46,8 +45,8 @@ impl BvhInstance {
         self.inv_trans = trans_matrix.inverse();
 
         // calculate world-space bounds using the new matrix
-        let bmin = root.aabb_min;
-        let bmax = root.aabb_max;
+        let bmin = root.aabb.bmin;
+        let bmax = root.aabb.bmax;
         for i in 0..8 {
             self.bounds.grow(trans_matrix.transform_point3(vec3(
                 if i & 1 != 0 { bmax.x } else { bmin.x },
@@ -78,14 +77,12 @@ impl Bvh {
                 nodes.push(BvhNode {
                     left_first: 0,
                     tri_count: count,
-                    aabb_min: Vec3::ZERO,
-                    aabb_max: Vec3::ZERO,
+                    aabb: Aabb::default(),                    
                 });
                 nodes.push(BvhNode {
                     left_first: 0,
                     tri_count: 0,
-                    aabb_min: Vec3::ZERO,
-                    aabb_max: Vec3::ZERO,
+                    aabb: Aabb::default(),
                 });
                 nodes
             },
@@ -119,17 +116,17 @@ impl Bvh {
 
     fn update_node_bounds(&mut self, node_idx: usize) {
         let node = &mut self.nodes[node_idx];
-        node.aabb_min = Vec3::splat(1e30f32);
-        node.aabb_max = Vec3::splat(-1e30f32);
+        node.aabb.bmin = Vec3::splat(1e30f32);
+        node.aabb.bmax = Vec3::splat(-1e30f32);
         for i in 0..node.tri_count {
             let leaf_tri_index = self.triangle_indexs[(node.left_first + i) as usize];
             let leaf_tri = self.tris[leaf_tri_index];
-            node.aabb_min = node.aabb_min.min(leaf_tri.vertex0);
-            node.aabb_min = node.aabb_min.min(leaf_tri.vertex1);
-            node.aabb_min = node.aabb_min.min(leaf_tri.vertex2);
-            node.aabb_max = node.aabb_max.max(leaf_tri.vertex0);
-            node.aabb_max = node.aabb_max.max(leaf_tri.vertex1);
-            node.aabb_max = node.aabb_max.max(leaf_tri.vertex2);
+            node.aabb.bmin = node.aabb.bmin.min(leaf_tri.vertex0);
+            node.aabb.bmin = node.aabb.bmin.min(leaf_tri.vertex1);
+            node.aabb.bmin = node.aabb.bmin.min(leaf_tri.vertex2);
+            node.aabb.bmax = node.aabb.bmax.max(leaf_tri.vertex0);
+            node.aabb.bmax = node.aabb.bmax.max(leaf_tri.vertex1);
+            node.aabb.bmax = node.aabb.bmax.max(leaf_tri.vertex2);
         }
     }
 

@@ -1,10 +1,10 @@
 use std::mem::swap;
 
-use crate::{
-    prelude::BvhInstance,
+use crate::{    
     tlas::{Tlas, TlasNode},
     tri::Tri,
-    Bvh,
+    bvh::{Bvh, BvhInstance},
+    aabb::Aabb,    
 };
 use bevy::prelude::*;
 
@@ -145,21 +145,25 @@ impl Ray {
         }
     }
 
-    pub fn intersect_aabb(&self, bmin: Vec3, bmax: Vec3) -> f32 {
+    #[inline(always)]
+    pub fn intersect_aabb(&self, aabb: &Aabb ) -> f32 {
         #[cfg(feature = "trace")]
         let _span = info_span!("intersect_aabb").entered();
-        let tx1 = (bmin.x - self.origin.x) * self.direction_inv.x;
-        let tx2 = (bmax.x - self.origin.x) * self.direction_inv.x;
+        let tx1 = (aabb.bmin.x - self.origin.x) * self.direction_inv.x;
+        let tx2 = (aabb.bmax.x - self.origin.x) * self.direction_inv.x;
         let tmin = tx1.min(tx2);
         let tmax = tx1.max(tx2);
-        let ty1 = (bmin.y - self.origin.y) * self.direction_inv.y;
-        let ty2 = (bmax.y - self.origin.y) * self.direction_inv.y;
+        let ty1 = (aabb.bmin.y - self.origin.y) * self.direction_inv.y;
+        let ty2 = (aabb.bmax.y - self.origin.y) * self.direction_inv.y;
         let tmin = tmin.max(ty1.min(ty2));
         let tmax = tmax.min(ty1.max(ty2));
-        let tz1 = (bmin.z - self.origin.z) * self.direction_inv.z;
-        let tz2 = (bmax.z - self.origin.z) * self.direction_inv.z;
+        let tz1 = (aabb.bmin.z - self.origin.z) * self.direction_inv.z;
+        let tz2 = (aabb.bmax.z - self.origin.z) * self.direction_inv.z;
         let tmin = tmin.max(tz1.min(tz2));
         let tmax = tmax.min(tz1.max(tz2));
+
+        // Most intersect test would return here with a tmax and min test
+        // but we are also sorting 
         let t_hit = if let Some(hit) = self.hit {
             hit.distance
         } else {
@@ -172,7 +176,7 @@ impl Ray {
             1e30f32
         }
     }
-
+    
     pub fn intersect_bvh(&mut self, bvh: &Bvh, entity: Entity) {
         #[cfg(feature = "trace")]
         let _span = info_span!("intersect_bvh").entered();
@@ -192,8 +196,8 @@ impl Ray {
             }
             let mut child1 = &bvh.nodes[node.left_first as usize];
             let mut child2 = &bvh.nodes[(node.left_first + 1) as usize];
-            let mut dist1 = self.intersect_aabb(child1.aabb_min, child1.aabb_max);
-            let mut dist2 = self.intersect_aabb(child2.aabb_min, child2.aabb_max);
+            let mut dist1 = self.intersect_aabb(&child1.aabb);
+            let mut dist2 = self.intersect_aabb(&child2.aabb);
             if dist1 > dist2 {
                 swap(&mut dist1, &mut dist2);
                 swap(&mut child1, &mut child2);
@@ -246,8 +250,8 @@ impl Ray {
             }
             let mut child1 = &tlas.tlas_nodes[(node.left_right & 0xffff) as usize];
             let mut child2 = &tlas.tlas_nodes[(node.left_right >> 16) as usize];
-            let mut dist1 = self.intersect_aabb(child1.aabb_min, child1.aabb_max);
-            let mut dist2 = self.intersect_aabb(child2.aabb_min, child2.aabb_max);
+            let mut dist1 = self.intersect_aabb(&child1.aabb);
+            let mut dist2 = self.intersect_aabb(&child2.aabb);
             if dist1 > dist2 {
                 swap(&mut dist1, &mut dist2);
                 swap(&mut child1, &mut child2);
