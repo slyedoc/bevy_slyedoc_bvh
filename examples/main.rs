@@ -53,11 +53,11 @@ pub fn camera_gizmo(
         let duration = 0.0;
 
         // Draw frustum lines
-        let mut ray = Ray::default();
+         Ray::default();
         for i in 0..4 {
             let u = if i % 2 == 0 { 0.0 } else { 1.0 };
             let v = if i < 2 { 0.0 } else { 1.0 };
-            camera.set_ray(&mut ray, u, v);
+            let mut ray = camera.get_ray(u, v);
             let end = camera.origin + (ray.direction * ray.distance);
             lines.line(start, end, duration);
         }

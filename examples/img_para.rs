@@ -92,7 +92,6 @@ fn main() {
             });
 
             let mut img = RgbImage::new(camera.width, camera.height);
-            let mut ray = Ray::default();
             
             for grid_x in 0..8 {
                 for grid_y in 0..8 {                  
@@ -103,8 +102,7 @@ fn main() {
                             
                             #[cfg(feature = "trace")]
                             let _span = info_span!("pixel").entered();
-                            camera.set_ray(
-                                &mut ray,
+                            let mut ray = camera.get_ray(
                                 x as f32 / camera.width as f32,
                                 // TODO: image still reversed
                                 1.0 - (y as f32 / camera.height as f32),

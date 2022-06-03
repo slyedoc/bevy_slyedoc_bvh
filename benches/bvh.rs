@@ -9,6 +9,7 @@ use rand_chacha::ChaChaRng;
 
 criterion_group!(benches, tlas_intersection,);
 criterion_main!(benches);
+const GRID_EDGE_DIVISIONS: u32 = 64;
 
 pub fn gen_random_triangles(size: u32, scale: f32, rng: &mut impl Rng) -> Vec<Tri> {
     (0..size)
@@ -64,15 +65,16 @@ fn tlas_intersection(criterion: &mut Criterion) {
                 });
 
                 let mut img = RgbImage::new(camera.width, camera.height);
-                let mut ray = Ray::default();
-                for grid_x in 0..8 {
-                    for grid_y in 0..8 {
-                        for u in 0..(camera.width / 8) {
-                            for v in 0..(camera.height / 8) {
-                                let x = (grid_x * camera.width / 8) + u;
-                                let y = (grid_y * camera.height / 8) + v;
-                                camera.set_ray(
-                                    &mut ray,
+                // TODO: this tiling doesnt all resolutions, but its faster, so leaving it in for now 
+                                
+                for grid_x in 0..GRID_EDGE_DIVISIONS {
+                    for grid_y in 0..GRID_EDGE_DIVISIONS {
+                        for u in 0..(camera.width / GRID_EDGE_DIVISIONS) {
+                            for v in 0..(camera.height / GRID_EDGE_DIVISIONS) {
+                                let x = (grid_x * camera.width / GRID_EDGE_DIVISIONS) + u;
+                                let y = (grid_y * camera.height / GRID_EDGE_DIVISIONS) + v;
+                                let mut ray = camera.get_ray(
+                                    
                                     x as f32 / camera.width as f32,
                                     // TODO: image still reversed
                                     1.0 - (y as f32 / camera.height as f32),

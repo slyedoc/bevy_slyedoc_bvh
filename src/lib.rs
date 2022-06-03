@@ -225,7 +225,7 @@ pub mod camera_system {
                             // }
 
                             // TODO: flip v since image is upside down, figure out why
-                            camera.set_ray(&mut ray, u, 1.0 - v);
+                            let mut ray = camera.get_ray(u, 1.0 - v);
                             let color = if let Some(hit) = ray.intersect_tlas(&tlas) {
                                 vec3(hit.u, hit.v, 1.0 - (hit.u + hit.v)) * 255.0
                             } else {

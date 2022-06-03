@@ -1,6 +1,6 @@
+use crate::ray::Ray;
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
-use crate::ray::Ray;
 
 // TODO: Make this projection based
 #[derive(Component, Inspectable)]
@@ -67,13 +67,16 @@ impl BvhCamera {
             self.origin - self.horizontal / 2.0 - self.vertical / 2.0 - self.focus_dist * self.w;
     }
 
-    pub fn set_ray(&self, ray: &mut Ray, u: f32, v: f32) {
-        ray.origin = self.origin;
-        ray.direction = (self.lower_left_corner + u * self.horizontal + v * self.vertical
+    pub fn get_ray(&self, u: f32, v: f32) -> Ray {
+        let direction = (self.lower_left_corner + u * self.horizontal + v * self.vertical
             - self.origin)
             .normalize();
-        ray.direction_inv = ray.direction.recip();
-        ray.distance = 1e30f32;
-        ray.hit = None;
+        Ray {
+            origin: self.origin,
+            direction: direction.clone(),
+            direction_inv: direction.recip(),
+            distance: 1e30f32,
+            hit: None,
+        }
     }
 }
