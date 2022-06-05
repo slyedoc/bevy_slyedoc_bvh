@@ -1,29 +1,25 @@
 use bevy::{asset::LoadState, math::vec3, prelude::*, transform::TransformSystem};
 use bevy_inspector_egui::prelude::*;
+use std::time::Duration;
 
-mod assets;
 mod aabb;
 use aabb::*;
+mod assets;
 mod bvh;
 use bvh::*;
 mod camera;
 use camera::*;
 mod ray;
-mod tri;
-use tri::*;
 mod tlas;
 use tlas::*;
-use std::time::Duration;
+mod tri;
+use tri::*;
 
 pub mod prelude {
     pub use crate::{
-        aabb::Aabb, assets::gen_random_triangles, bvh::*, camera::*, ray::*, tlas::*, tri::*,
+        aabb::Aabb, assets::*, bvh::*, camera::*, ray::*, tlas::*, tri::*,
         BvhInit, BvhPlugin, BvhSystems,
     };
-}
-
-pub fn test() {
-    info!("test");
 }
 
 const BIN_COUNT: usize = 8;
@@ -161,7 +157,7 @@ pub mod camera_system {
     };
     use rayon::prelude::*;
 
-    use crate::{ray::Ray, tlas::Tlas, BvhStats};
+    use crate::{tlas::Tlas, BvhStats};
 
     use super::BvhCamera;
 
@@ -209,7 +205,6 @@ pub mod camera_system {
                     .par_chunks_mut(PIXEL_TILE)
                     .enumerate()
                     .for_each(|(i, pixels)| {
-                        let mut ray = Ray::default();
                         for pixel_offset in 0..(pixels.len() / 4) {
                             let index = i * PIXEL_TILE_COUNT + pixel_offset;
                             let offset = pixel_offset * 4;

@@ -73,7 +73,7 @@ impl BvhCamera {
             .normalize();
         Ray {
             origin: self.origin,
-            direction: direction.clone(),
+            direction,
             direction_inv: direction.recip(),
             distance: 1e30f32,
             hit: None,

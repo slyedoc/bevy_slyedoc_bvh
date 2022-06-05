@@ -5,7 +5,7 @@ mod overlay;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_inspector_egui::WorldInspectorPlugin;
-use bevy_slyedoc_bvh::{BvhInitWithChildren, BvhInit};
+use bevy_slyedoc_bvh::{BvhInitWithChildren, BvhInit, prelude::BvhCamera};
 pub use camera_controller::*;
 pub use cursor::*;
 pub use exit::*;
@@ -101,5 +101,6 @@ pub fn setup_cameras(mut commands: Commands) {
             transform: Transform::from_xyz(0.0, 2.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         })
-        .insert(CameraController::default());
+        .insert(CameraController::default())
+        .insert(BvhCamera::new(512, 512));
 }

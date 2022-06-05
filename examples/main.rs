@@ -17,7 +17,7 @@ fn main() {
         .add_plugins(HelperPlugins) // See cusor plugin in helper plugins
         .add_plugin(BvhPlugin)
         //.add_plugin(DebugLinesPlugin::default())
-        .add_startup_system(setup_cameras)
+        .add_startup_system(helpers::setup_cameras)
         .add_startup_system(helpers::load_enviroment)
         .add_startup_system(helpers::load_sponza)
         //.add_startup_system(load_test)
@@ -31,16 +31,7 @@ fn main() {
         .run();
 }
 
-pub fn setup_cameras(mut commands: Commands) {
-    commands.spawn_bundle(UiCameraBundle::default());
-    commands
-        .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 2.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        })
-        .insert(CameraController::default())
-        .insert(BvhCamera::new(128, 128));
-}
+
 
 #[allow(dead_code)]
 pub fn camera_gizmo(

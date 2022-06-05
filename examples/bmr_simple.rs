@@ -26,7 +26,8 @@ fn main() {
         // the positions of your meshes have been updated in the UPDATE stage.
         .add_system_to_stage(
             CoreStage::First,
-            update_raycast_with_cursor_position.before(RaycastSystem::BuildRays), //::<MyRaycastSet>
+            update_raycast_with_cursor_position.before(RaycastSystem::BuildRays), 
+            //::<MyRaycastSet>
         )
         .add_startup_system(setup_scene)
         .add_startup_system(setup_ui)
