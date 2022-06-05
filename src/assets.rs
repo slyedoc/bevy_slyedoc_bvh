@@ -1,8 +1,11 @@
-use bevy::{prelude::*, math::vec3};
+use crate::{
+    prelude::{Bvh, BvhInstance},
+    tlas::Tlas,
+    Tri,
+};
+use bevy::{math::vec3, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
-use crate::{Tri, tlas::Tlas, prelude::{Bvh, BvhInstance}};
-
 
 // TODO: pretty sure vec3 already has this
 fn random_vec3(rng: &mut impl Rng) -> Vec3 {
@@ -27,10 +30,9 @@ pub fn gen_random_triangles(size: u32, scale: f32, rng: &mut impl Rng) -> Vec<Tr
         .collect::<Vec<_>>()
 }
 
-
 /// Generate a random scene for testing
 #[allow(dead_code)]
- pub fn build_random_tri_scene() -> Tlas {
+pub fn build_random_tri_scene() -> Tlas {
     let mut rng = ChaChaRng::seed_from_u64(0);
     let mut tlas = Tlas::default();
     let enity_count = 100;

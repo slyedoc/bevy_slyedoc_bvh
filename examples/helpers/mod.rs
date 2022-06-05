@@ -3,27 +3,43 @@ mod cursor;
 mod exit;
 mod overlay;
 
-use bevy::{app::PluginGroupBuilder, prelude::*};
-use bevy_inspector_egui::WorldInspectorPlugin;
-use bevy_slyedoc_bvh::{BvhInitWithChildren, BvhInit, prelude::BvhCamera};
+use bevy::prelude::*;
+use bevy_inspector_egui::{WorldInspectorParams, WorldInspectorPlugin};
+use bevy_slyedoc_bvh::{prelude::BvhCamera, BvhInit, BvhInitWithChildren};
 pub use camera_controller::*;
 pub use cursor::*;
 pub use exit::*;
 pub use overlay::*;
-pub struct HelperPlugins;
 
-impl PluginGroup for HelperPlugins {
-    fn build(&mut self, group: &mut PluginGroupBuilder) {
-        // Editor
-        group.add(WorldInspectorPlugin::new());
 
-        // Quality of life plugins
-        group.add(CameraControllerPlugin);
-        group.add(OverlayPlugin);
-        group.add(ExitPlugin);
+pub struct HelperPlugin;
 
-        // Simple 3d cursor to test bvh
-        group.add(CursorPlugin);
+impl Plugin for HelperPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .insert_resource(WorldInspectorParams {
+                enabled: false,
+                ..Default::default()
+            })
+            .add_plugin(WorldInspectorPlugin::new())
+            // Quality of life plugins
+            .add_plugin(CameraControllerPlugin)
+            .add_plugin(OverlayPlugin)
+            .add_plugin(ExitPlugin)
+            // Simple 3d cursor to test bvh
+            .add_plugin(CursorPlugin)
+            .add_system(HelperPlugin::toggle_inspector);
+    }
+}
+
+impl HelperPlugin {
+    fn toggle_inspector(
+        input: ResMut<Input<KeyCode>>,
+        mut window_params: ResMut<WorldInspectorParams>,
+    ) {
+        if input.just_pressed(KeyCode::Grave) {
+            window_params.enabled = !window_params.enabled
+        }
     }
 }
 
@@ -63,7 +79,7 @@ pub fn load_clock_tower(mut commands: Commands, asset_server: ResMut<AssetServer
     commands
         .spawn_bundle(TransformBundle {
             // scale it down so we can see it
-            local: Transform::from_xyz(0.0, 4.0, -10.0).with_scale(Vec3::splat(0.001)), 
+            local: Transform::from_xyz(0.0, 4.0, -10.0).with_scale(Vec3::splat(0.001)),
             global: GlobalTransform::identity(),
         })
         .with_children(|parent| {
@@ -80,7 +96,7 @@ pub fn load_sponza(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     let scene = asset_server.load("models/sponza/sponza.gltf#Scene0");
     commands
         .spawn_bundle(TransformBundle {
-            local: Transform::from_xyz(0.0, 1.0, 0.0), 
+            local: Transform::from_xyz(0.0, 1.0, 0.0),
             global: GlobalTransform::identity(),
         })
         .with_children(|parent| {
@@ -92,7 +108,6 @@ pub fn load_sponza(mut commands: Commands, asset_server: ResMut<AssetServer>) {
         .insert(BvhInitWithChildren(scene));
 }
 
-
 #[allow(dead_code)]
 pub fn setup_cameras(mut commands: Commands) {
     commands.spawn_bundle(UiCameraBundle::default());
@@ -102,5 +117,5 @@ pub fn setup_cameras(mut commands: Commands) {
             ..default()
         })
         .insert(CameraController::default())
-        .insert(BvhCamera::new(512, 512));
+        .insert(BvhCamera::new(1024, 1024));
 }

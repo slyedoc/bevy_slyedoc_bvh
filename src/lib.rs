@@ -17,8 +17,8 @@ use tri::*;
 
 pub mod prelude {
     pub use crate::{
-        aabb::Aabb, assets::*, bvh::*, camera::*, ray::*, tlas::*, tri::*,
-        BvhInit, BvhPlugin, BvhSystems,
+        aabb::Aabb, assets::*, bvh::*, camera::*, ray::*, tlas::*, tri::*, BvhInit, BvhPlugin,
+        BvhSystems,
     };
 }
 
@@ -54,19 +54,44 @@ impl Plugin for BvhPlugin {
                             .after(Self::spawn_bvh_with_children),
                     )
                     .with_system(Self::update_tlas.after(Self::update_bvh)),
-            )
-            // camera systems, will make into feature
-            .add_system_set_to_stage(
-                CoreStage::PostUpdate,
-                SystemSet::new()
-                    .label(BvhSystems::Camera)
-                    .after(BvhSystems::Setup)
-                    .with_system(camera_system::init_camera_image)
-                    .with_system(
-                        camera_system::update_camera.after(camera_system::init_camera_image),
-                    )
-                    .with_system(camera_system::render_camera.after(camera_system::update_camera)),
             );
+            // camera systems, will make into feature
+            // .add_system_set_to_stage(
+            //     CoreStage::PostUpdate,
+            //     SystemSet::new()
+            //         .label(BvhSystems::Camera)
+            //         .after(BvhSystems::Setup)
+            //         .with_system(camera_system::init_camera_image)
+            //         .with_system(
+            //             camera_system::update_camera.after(camera_system::init_camera_image),
+            //         )
+            //         .with_system(camera_system::render_camera.after(camera_system::update_camera))
+            //         .with_system(display_camera.after(camera_system::render_camera)),
+            // );
+    }
+}
+
+// TODO: This will go way, for testing
+pub fn display_camera(mut commands: Commands, camera: Query<&BvhCamera, Added<BvhCamera>>) {
+    for camera in camera.iter() {
+        if let Some(image) = &camera.image {
+            commands
+                .spawn_bundle(ImageBundle {
+                    style: Style {
+                        align_self: AlignSelf::FlexEnd,
+                        position_type: PositionType::Absolute,
+                        position: Rect {
+                            bottom: Val::Px(50.0),
+                            right: Val::Px(10.0),
+                            ..Default::default()
+                        },
+                        ..default()
+                    },
+                    image: image.clone().into(),
+                    ..default()
+                })
+                .insert(Name::new("BVH Image"));
+        }
     }
 }
 
@@ -89,6 +114,12 @@ impl BvhPlugin {
             // let loaded = server.get_load_state(handle.id);
             let mesh = meshes.get(handle).expect("Mesh not found");
             let tris = parse_mesh(mesh);
+            // mesh..ins(
+            //     ATTRIBUTE_BLEND_COLOR,
+            //     // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
+            //     vec![[1.0, 0.0, 0.0, 1.0]; 24],
+            // );
+
             stats.tri_count += tris.len();
 
             let bvh_index = tlas.add_bvh(Bvh::new(tris));
@@ -149,6 +180,8 @@ impl BvhPlugin {
 }
 
 pub mod camera_system {
+    use super::BvhCamera;
+    use crate::{tlas::Tlas, BvhStats};
     use bevy::{
         math::vec3,
         prelude::*,
@@ -156,10 +189,6 @@ pub mod camera_system {
         utils::Instant,
     };
     use rayon::prelude::*;
-
-    use crate::{tlas::Tlas, BvhStats};
-
-    use super::BvhCamera;
 
     pub fn init_camera_image(
         mut query: Query<&mut BvhCamera, Added<BvhCamera>>,
@@ -190,6 +219,7 @@ pub mod camera_system {
         camera_query: Query<&BvhCamera>,
         mut images: ResMut<Assets<Image>>,
         mut stats: ResMut<BvhStats>,
+
         tlas: Res<Tlas>,
     ) {
         if let Ok(camera) = camera_query.get_single() {

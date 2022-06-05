@@ -11,7 +11,7 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins)
-        .add_plugins(HelperPlugins) // See cusor plugin in helper plugins
+        .add_plugin(HelperPlugin) // See cusor plugin in helper plugins
         .add_plugin(BvhPlugin)
         .add_startup_system(helpers::setup_cameras)
         .add_startup_system(helpers::load_enviroment)
