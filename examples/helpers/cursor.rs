@@ -1,4 +1,4 @@
-use bevy::{prelude::*, render::camera::Camera3d};
+use bevy::prelude::*;
 use bevy_slyedoc_bvh::prelude::*;
 pub struct CursorPlugin;
 

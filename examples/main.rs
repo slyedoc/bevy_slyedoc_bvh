@@ -3,7 +3,7 @@ mod helpers;
 use std::f32::consts::PI;
 
 use bevy::{math::vec3, prelude::*, window::PresentMode};
-use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
+//use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
 use bevy_slyedoc_bvh::prelude::*;
 use helpers::*;
 
@@ -25,27 +25,27 @@ fn main() {
         .run();
 }
 
-#[allow(dead_code)]
-pub fn camera_gizmo(
-    mut commands: Commands,
-    mut lines: ResMut<DebugLines>,
-    camera_query: Query<(&BvhCamera)>,
-) {
-    if let Ok(camera) = camera_query.get_single() {
-        let start = camera.origin;
-        let duration = 0.0;
+// #[allow(dead_code)]
+// pub fn camera_gizmo(
+//     mut commands: Commands,
+//     mut lines: ResMut<DebugLines>,
+//     camera_query: Query<(&BvhCamera)>,
+// ) {
+//     if let Ok(camera) = camera_query.get_single() {
+//         let start = camera.origin;
+//         let duration = 0.0;
 
-        // Draw frustum lines
-        Ray::default();
-        for i in 0..4 {
-            let u = if i % 2 == 0 { 0.0 } else { 1.0 };
-            let v = if i < 2 { 0.0 } else { 1.0 };
-            let mut ray = camera.get_ray(u, v);
-            let end = camera.origin + (ray.direction * ray.distance);
-            lines.line(start, end, duration);
-        }
-    }
-}
+//         // Draw frustum lines
+//         Ray::default();
+//         for i in 0..4 {
+//             let u = if i % 2 == 0 { 0.0 } else { 1.0 };
+//             let v = if i < 2 { 0.0 } else { 1.0 };
+//             let mut ray = camera.get_ray(u, v);
+//             let end = camera.origin + (ray.direction * ray.distance);
+//             lines.line(start, end, duration);
+//         }
+//     }
+// }
 
 fn load_test(
     mut commands: Commands,

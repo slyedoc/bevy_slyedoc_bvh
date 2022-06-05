@@ -72,7 +72,7 @@ impl Ray {
     ) -> Self {
         let camera_position = camera_transform.compute_matrix();
         let screen_size = Vec2::from([window.width() as f32, window.height() as f32]);
-        let projection_matrix = camera.projection_matrix;
+        let projection_matrix = camera.projection_matrix();
 
         // Normalized device coordinate cursor position from (-1, -1, -1) to (1, 1, 1)
         let cursor_ndc = (cursor_pos_screen / screen_size) * 2.0 - Vec2::from([1.0, 1.0]);
@@ -235,9 +235,10 @@ impl Ray {
         *self = backup_ray;
     }
 
-    pub fn intersect_tlas(&mut self, tlas: &Tlas) -> Option<Hit> {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("intersect_tlas").entered();
+    pub fn intersect_tlas(&mut self, tlas: &Tlas) -> Option<Hit> {        
+        if tlas.tlas_nodes.is_empty() {
+           return None
+        }        
         let mut stack = Vec::<&TlasNode>::with_capacity(64);
         let mut node = &tlas.tlas_nodes[0];
         loop {

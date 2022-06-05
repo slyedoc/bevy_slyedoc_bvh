@@ -1,9 +1,9 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
+
 
 use crate::{ Bvh, BvhInstance, Aabb};
 
-#[derive(Default, Debug, Inspectable, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone)]
 pub struct TlasNode {
     pub aabb: Aabb,
     pub left_right: u32, // 2x16 bits    
@@ -16,10 +16,9 @@ impl TlasNode {
     }
 }
 
-#[derive(Debug, Inspectable)]
+#[derive(Debug)]
 pub struct Tlas {
-    pub tlas_nodes: Vec<TlasNode>,
-    #[inspectable(ignore)]
+    pub tlas_nodes: Vec<TlasNode>,    
     pub blas: Vec<BvhInstance>,
     pub bvhs: Vec<Bvh>,
 }
@@ -51,8 +50,9 @@ impl Tlas {
 
         let mut node_index = vec![0u32; self.blas.len() + 1];
         let mut node_indices = self.blas.len() as i32;
+        
         // assign a TLASleaf node to each BLAS
-
+        // and index
         for (i, b) in self.blas.iter().enumerate() {
             node_index[i] = i as u32 + 1;
             self.tlas_nodes.push(TlasNode {
@@ -114,7 +114,6 @@ impl Tlas {
         best_b
     }
 
-
     pub fn update_bvh_instances(&mut self, query: &Query<&GlobalTransform>) {
         for instance in &mut self.blas {
             let bvh = &self.bvhs[instance.bvh_index];
@@ -123,6 +122,4 @@ impl Tlas {
             }
         }
     }
-
-
 }

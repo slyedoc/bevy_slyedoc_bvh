@@ -1,5 +1,4 @@
 use bevy::{asset::LoadState, math::vec3, prelude::*, transform::TransformSystem};
-use bevy_inspector_egui::prelude::*;
 use std::time::Duration;
 
 mod aabb;
@@ -35,12 +34,12 @@ impl Plugin for BvhPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<BvhStats>()
             .init_resource::<Tlas>()
-            .register_inspectable::<Bvh>()
-            .register_inspectable::<BvhCamera>()
-            .register_inspectable::<Tlas>()
-            .register_inspectable::<TlasNode>()
-            .register_inspectable::<Tri>()
-            .register_inspectable::<Aabb>()
+            // .register_inspectable::<Bvh>()
+            // .register_inspectable::<BvhCamera>()
+            // .register_inspectable::<Tlas>()
+            // .register_inspectable::<TlasNode>()
+            // .register_inspectable::<Tri>()
+            // .register_inspectable::<Aabb>()
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::new()
@@ -80,7 +79,7 @@ pub fn display_camera(mut commands: Commands, camera: Query<&BvhCamera, Added<Bv
                     style: Style {
                         align_self: AlignSelf::FlexEnd,
                         position_type: PositionType::Absolute,
-                        position: Rect {
+                        position: UiRect {
                             bottom: Val::Px(50.0),
                             right: Val::Px(10.0),
                             ..Default::default()
@@ -299,7 +298,8 @@ pub fn parse_mesh(mesh: &Mesh) -> Vec<Tri> {
             .collect::<Vec<_>>();
 
             let mut triangles = Vec::with_capacity(indexes.len() / 3);
-            for tri_indexes in indexes.chunks(3) {
+            for tri_indexes in indexes.chunks(3)
+             {
                 let v0 = verts[tri_indexes[0] as usize];
                 let v1 = verts[tri_indexes[1] as usize];
                 let v2 = verts[tri_indexes[2] as usize];

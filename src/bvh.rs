@@ -1,8 +1,7 @@
 use crate::{aabb::Aabb, tri::Tri, BIN_COUNT};
 use bevy::{math::vec3, prelude::*, reflect::TypeUuid};
-use bevy_inspector_egui::Inspectable;
 
-#[derive(Default, Debug, Clone, Inspectable, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct BvhNode {
     pub aabb: Aabb,
     pub left_first: u32,
@@ -21,7 +20,7 @@ impl BvhNode {
     }
 }
 
-#[derive(Debug, Inspectable)]
+#[derive(Debug)]
 pub struct BvhInstance {
     pub entity: Entity,
     pub bvh_index: usize,
@@ -57,7 +56,7 @@ impl BvhInstance {
     }
 }
 
-#[derive(Default, Component, Inspectable, Debug, TypeUuid)]
+#[derive(Default, Component, Debug, TypeUuid)]
 #[uuid = "81299f9d-41e0-4ff0-86b7-6bef6c3f67c1"]
 pub struct Bvh {
     pub nodes: Vec<BvhNode>,

@@ -10,10 +10,10 @@ impl Plugin for OverlayPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(FrameTimeDiagnosticsPlugin::default())
             .add_startup_system(setup_overlay)
-            .add_system(update_fps)
-            .add_system(update_bvh_tri_count)
-            .add_system(update_render_time)
-            .add_system(update_ray_count);
+            .add_system(update_fps);
+            //.add_system(update_bvh_tri_count)
+            //.add_system(update_render_time)
+            //.add_system(update_ray_count);
     }
 }
 
@@ -38,7 +38,7 @@ fn setup_overlay(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
                 position_type: PositionType::Absolute,
-                position: Rect {
+                position: UiRect::<Val> {
                     bottom: Val::Px(10.0),
                     right: Val::Px(10.0),
                     ..Default::default()
@@ -77,7 +77,7 @@ fn setup_overlay(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             style: Style {
                 align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
-                position: Rect {
+                position: UiRect::<Val> {
                     bottom: Val::Px(50.0),
                     left: Val::Px(10.0),
                     ..Default::default()
@@ -117,7 +117,7 @@ fn setup_overlay(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             style: Style {
                 align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
-                position: Rect {
+                position: UiRect::<Val> {
                     bottom: Val::Px(100.0),
                     left: Val::Px(10.0),
                     ..Default::default()
@@ -155,7 +155,7 @@ fn setup_overlay(mut commands: Commands, asset_server: ResMut<AssetServer>) {
         .spawn_bundle(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                position: Rect {
+                position: UiRect::<Val> {
                     left: Val::Px(10.0),
                     bottom: Val::Px(10.0),
                     ..Default::default()
@@ -209,6 +209,7 @@ fn update_fps(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<Fp
     }
 }
 
+#[allow(dead_code)]
 fn update_bvh_tri_count(mut query: Query<&mut Text, With<TriCountText>>, stats: Res<BvhStats>) {
     for mut text in query.iter_mut() {
         // Update the value of the second section
@@ -216,6 +217,7 @@ fn update_bvh_tri_count(mut query: Query<&mut Text, With<TriCountText>>, stats: 
     }
 }
 
+#[allow(dead_code)]
 fn update_render_time(mut query: Query<&mut Text, With<RenderTimeText>>, stats: Res<BvhStats>) {
     for mut text in query.iter_mut() {
         // Update the value of the second section
@@ -223,6 +225,7 @@ fn update_render_time(mut query: Query<&mut Text, With<RenderTimeText>>, stats: 
     }
 }
 
+#[allow(dead_code)]
 fn update_ray_count(mut query: Query<&mut Text, With<RayCountText>>, stats: Res<BvhStats>) {
     for mut text in query.iter_mut() {
         // Update the value of the second section

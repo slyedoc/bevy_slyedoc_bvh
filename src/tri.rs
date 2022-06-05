@@ -1,9 +1,8 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
 
 // TODO: Will be replaced by bevy mesh data
 //, stop gap to get things working
-#[derive(Default, Debug, Copy, Inspectable, Clone)]
+#[derive(Default, Debug, Copy, Clone)]
 pub struct Tri {
     pub vertex0: Vec3,
     pub vertex1: Vec3,

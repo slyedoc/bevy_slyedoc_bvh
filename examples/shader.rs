@@ -4,20 +4,14 @@ use std::f32::consts::PI;
 
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},
+    pbr::MaterialPipeline,
     prelude::*,
     reflect::TypeUuid,
-    render::{
-        render_asset::*,
-        render_resource::{
-            std140::{AsStd140, Std140},
-            *,
-        },
-        renderer::*, camera::ScalingMode,
-    },
+    render::{camera::ScalingMode, render_asset::*, render_resource::*, renderer::*},
     sprite::{Material2d, Material2dPipeline, Material2dPlugin, MaterialMesh2dBundle},
     window::PresentMode,
 };
-use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
+
 use bevy_slyedoc_bvh::prelude::*;
 use helpers::*;
 
@@ -46,156 +40,15 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(HelperPlugin) // See cusor plugin in helper plugins
         .add_plugin(BvhPlugin)
-        .add_plugin(Material2dPlugin::<BvhMaterial>::default())
+        .add_plugin(MaterialPlugin::<BvhMaterial>::default())
         //.add_plugin(DebugLinesPlugin::default())
         .add_startup_system(spawn_camera)
         //.add_startup_system(helpers::setup_cameras)
-        //.add_startup_system(helpers::load_enviroment)
+        .add_startup_system(helpers::load_enviroment)
         //.add_startup_system(helpers::load_sponza)
         .add_startup_system(load_image)
         .add_system(spawn_quad)
         .run();
-}
-
-fn spawn_quad(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut bvh_material: ResMut<Assets<BvhMaterial>>,
-    awesome: Res<Awesome>,
-) {
-    commands.spawn_bundle(MaterialMesh2dBundle {
-        mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-        material: bvh_material.add(BvhMaterial {
-            alpha: 0.5,
-            color: Color::RED,
-            image: awesome.clone(),
-        }),
-        ..default()
-    });
-}
-
-#[derive(TypeUuid, Clone)]
-#[uuid = "90634fdb-f9e1-41b9-85b9-fc4d2979cd09"]
-struct BvhMaterial {
-    pub alpha: f32,
-    pub color: Color,
-    pub image: Handle<Image>,
-}
-
-#[derive(Clone, AsStd140)]
-struct BvhMaterialUniformData {
-    pub alpha: f32,
-    pub color: Vec4,
-}
-
-struct BvhMaterialGPU {
-    bind_group: BindGroup,
-}
-
-impl Material2d for BvhMaterial {
-    fn bind_group_layout(render_device: &bevy::render::renderer::RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: None,
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        min_binding_size: BufferSize::new(
-                            BvhMaterialUniformData::std140_size_static() as u64,
-                        ),
-                        has_dynamic_offset: false,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: TextureViewDimension::D2,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        })
-    }
-
-    fn bind_group(material: &BvhMaterialGPU) -> &BindGroup {
-        &material.bind_group
-    }
-
-    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        asset_server.watch_for_changes().unwrap();
-        Some(asset_server.load("shaders/bvh_material.wgsl"))
-    }
-}
-
-impl RenderAsset for BvhMaterial {
-    type ExtractedAsset = BvhMaterial;
-    type PreparedAsset = BvhMaterialGPU;
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<Material2dPipeline<BvhMaterial>>,
-        SRes<RenderAssets<Image>>,
-    );
-
-    fn prepare_asset(
-        extracted_asset: BvhMaterial,
-        (render_device, pipeline, images): &mut SystemParamItem<Self::Param>,
-    ) -> Result<BvhMaterialGPU, PrepareAssetError<BvhMaterial>> {
-        let uniform_data = BvhMaterialUniformData {
-            alpha: extracted_asset.alpha,
-            color: extracted_asset.color.as_linear_rgba_f32().into(),
-        };
-
-        let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: None,
-            contents: uniform_data.as_std140().as_bytes(),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
-
-        let (view, sampler) = if let Some(result) = pipeline
-            .mesh2d_pipeline
-            .get_image_texture(images, &Some(extracted_asset.image.clone()))
-        {
-            result
-        } else {
-            return Err(PrepareAssetError::RetryNextUpdate(extracted_asset));
-        };
-
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: None,
-            layout: &pipeline.material2d_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(view),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::Sampler(sampler),
-                },
-            ],
-        });
-        Ok(BvhMaterialGPU { bind_group })
-    }
-
-    fn extract_asset(&self) -> BvhMaterial {
-        self.clone()
-    }
 }
 
 fn load_image(mut commands: Commands, assets: Res<AssetServer>) {
@@ -204,15 +57,110 @@ fn load_image(mut commands: Commands, assets: Res<AssetServer>) {
 }
 
 fn spawn_camera(mut commands: Commands) {
-    let mut camera = OrthographicCameraBundle::new_2d();
+    // camera
+    commands.spawn_bundle(Camera3dBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
+}
 
-     camera.orthographic_projection.right = 1.0 * RESOLUTION;
-     camera.orthographic_projection.left = -1.0 * RESOLUTION;
+fn spawn_quad(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut bvh_material: ResMut<Assets<BvhMaterial>>,
+    awesome: Res<Awesome>,
+) {
+    commands.spawn_bundle(MaterialMeshBundle {
+        mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
+        material: bvh_material.add(BvhMaterial { color: Color::RED }),
+        ..default()
+    });
+}
 
-    camera.orthographic_projection.top = 1.0;
-    camera.orthographic_projection.bottom = -1.0;
+#[derive(TypeUuid, Clone)]
+#[uuid = "90634fdb-f9e1-41b9-85b9-fc4d2979cd09"]
+struct BvhMaterial {
+    pub color: Color,
+}
 
-    camera.orthographic_projection.scaling_mode = ScalingMode::None;
+#[derive(Clone)]
+pub struct GpuBvhMaterial {
+    _buffer: Buffer,
+    bind_group: BindGroup,
+}
 
-    commands.spawn_bundle(camera);
+// The implementation of [`Material`] needs this impl to work properly.
+impl RenderAsset for BvhMaterial {
+    type ExtractedAsset = BvhMaterial;
+    type PreparedAsset = GpuBvhMaterial;
+    type Param = (SRes<RenderDevice>, SRes<MaterialPipeline<Self>>);
+    fn extract_asset(&self) -> Self::ExtractedAsset {
+        self.clone()
+    }
+
+    fn prepare_asset(
+        extracted_asset: Self::ExtractedAsset,
+        (render_device, material_pipeline): &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+        let color = Vec4::from_slice(&extracted_asset.color.as_linear_rgba_f32());
+
+        let byte_buffer = [0u8; Vec4::SIZE.get() as usize];
+        let mut buffer = encase::UniformBuffer::new(byte_buffer);
+        buffer.write(&color).unwrap();
+
+        let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            contents: buffer.as_ref(),
+            label: None,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        });
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: buffer.as_entire_binding(),
+            }],
+            label: None,
+            layout: &material_pipeline.material_layout,
+        });
+
+        Ok(GpuBvhMaterial {
+            _buffer: buffer,
+            bind_group,
+        })
+    }
+}
+
+impl Material for BvhMaterial {
+    // When creating a custom material, you need to define either a vertex shader, a fragment shader or both.
+    // If you don't define one of them it will use the default mesh shader which can be found at
+    // <https://github.com/bevyengine/bevy/blob/latest/crates/bevy_pbr/src/render/mesh.wgsl>
+
+    // For this example we don't need a vertex shader
+    // fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+    //     // Use the same path as the fragment shader since wgsl let's you define both shader in the same file
+    //     Some(asset_server.load("shaders/custom_material.wgsl"))
+    // }
+
+    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
+        Some(asset_server.load("shaders/bvh_material.wgsl"))
+    }
+
+    fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
+        &render_asset.bind_group
+    }
+
+    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: Some(Vec4::min_size()),
+                },
+                count: None,
+            }],
+            label: None,
+        })
+    }
 }

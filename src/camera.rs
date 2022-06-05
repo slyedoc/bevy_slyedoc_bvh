@@ -1,9 +1,8 @@
 use crate::ray::Ray;
 use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
 
 // TODO: Make this projection based
-#[derive(Component, Inspectable)]
+#[derive(Component)]
 pub struct BvhCamera {
     pub width: u32,
     pub height: u32,

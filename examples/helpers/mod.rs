@@ -4,7 +4,7 @@ mod exit;
 mod overlay;
 
 use bevy::prelude::*;
-use bevy_inspector_egui::{WorldInspectorParams, WorldInspectorPlugin};
+//use bevy_inspector_egui::{WorldInspectorParams, WorldInspectorPlugin};
 use bevy_slyedoc_bvh::{prelude::BvhCamera, BvhInit, BvhInitWithChildren};
 pub use camera_controller::*;
 pub use cursor::*;
@@ -17,31 +17,31 @@ pub struct HelperPlugin;
 impl Plugin for HelperPlugin {
     fn build(&self, app: &mut App) {
         app
-            .insert_resource(WorldInspectorParams {
-                enabled: false,
-                ..Default::default()
-            })
-            .add_plugin(WorldInspectorPlugin::new())
+            // .insert_resource(WorldInspectorParams {
+            //     enabled: false,
+            //     ..Default::default()
+            // })
+            // .add_plugin(WorldInspectorPlugin::new())
             // Quality of life plugins
             .add_plugin(CameraControllerPlugin)
             .add_plugin(OverlayPlugin)
             .add_plugin(ExitPlugin)
             // Simple 3d cursor to test bvh
-            .add_plugin(CursorPlugin)
-            .add_system(HelperPlugin::toggle_inspector);
+            .add_plugin(CursorPlugin);
+            //.add_system(HelperPlugin::toggle_inspector);
     }
 }
 
-impl HelperPlugin {
-    fn toggle_inspector(
-        input: ResMut<Input<KeyCode>>,
-        mut window_params: ResMut<WorldInspectorParams>,
-    ) {
-        if input.just_pressed(KeyCode::Grave) {
-            window_params.enabled = !window_params.enabled
-        }
-    }
-}
+// impl HelperPlugin {
+//     fn toggle_inspector(
+//         input: ResMut<Input<KeyCode>>,
+//         mut window_params: ResMut<WorldInspectorParams>,
+//     ) {
+//         if input.just_pressed(KeyCode::Grave) {
+//             window_params.enabled = !window_params.enabled
+//         }
+//     }
+// }
 
 // Adding a few system here to make reusing them easy
 
@@ -110,9 +110,9 @@ pub fn load_sponza(mut commands: Commands, asset_server: ResMut<AssetServer>) {
 
 #[allow(dead_code)]
 pub fn setup_cameras(mut commands: Commands) {
-    commands.spawn_bundle(UiCameraBundle::default());
+    //commands.spawn_bundle(UiCameraBundle::default());
     commands
-        .spawn_bundle(PerspectiveCameraBundle {
+        .spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(0.0, 2.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         })
