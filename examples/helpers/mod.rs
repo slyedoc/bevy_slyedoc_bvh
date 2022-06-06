@@ -5,7 +5,7 @@ mod overlay;
 
 use bevy::prelude::*;
 //use bevy_inspector_egui::{WorldInspectorParams, WorldInspectorPlugin};
-use bevy_slyedoc_bvh::{prelude::BvhCamera, BvhInit, BvhInitWithChildren};
+use bevy_slyedoc_bvh::{BvhInit, BvhInitWithChildren};
 pub use camera_controller::*;
 pub use cursor::*;
 pub use exit::*;
@@ -53,7 +53,7 @@ pub fn load_enviroment(
 ) {
     // light
     commands.spawn_bundle(DirectionalLightBundle {
-        transform: Transform::from_xyz(10.0, 10.0, 3.0),
+        transform: Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
@@ -116,6 +116,6 @@ pub fn setup_cameras(mut commands: Commands) {
             transform: Transform::from_xyz(0.0, 2.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         })
-        .insert(CameraController::default())
-        .insert(BvhCamera::new(1024, 1024));
+        .insert(CameraController::default());
+        //.insert(BvhCamera::new(1024, 1024));
 }

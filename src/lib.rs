@@ -52,7 +52,7 @@ impl Plugin for BvhPlugin {
                             .after(Self::spawn_bvh)
                             .after(Self::spawn_bvh_with_children),
                     )
-                    .with_system(Self::update_tlas.after(Self::update_bvh)),
+                    .with_system(Self::update_tlas.after(Self::update_bvh))
             );
             // camera systems, will make into feature
             // .add_system_set_to_stage(

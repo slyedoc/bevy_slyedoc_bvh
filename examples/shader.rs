@@ -28,7 +28,7 @@ fn main() {
         .insert_resource(WindowDescriptor {
             width: HEIGHT * RESOLUTION,
             height: HEIGHT,
-            title: "Bevy Template".to_string(),
+            title: "Shader".to_string(),
             present_mode: PresentMode::Fifo,
             resizable: false,
             ..Default::default()
@@ -61,18 +61,24 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
-    });
+    })
+    .insert(CameraController::default());
 }
 
 fn spawn_quad(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut bvh_material: ResMut<Assets<BvhMaterial>>,
+    
     awesome: Res<Awesome>,
 ) {
     commands.spawn_bundle(MaterialMeshBundle {
+        transform: Transform::from_xyz(0.0, 1.0, 0.0),
         mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-        material: bvh_material.add(BvhMaterial { color: Color::RED }),
+        material: bvh_material.add(BvhMaterial { 
+            color: Color::RED,  
+            mouse: Vec2::new(0.0, 0.0),
+        }),
         ..default()
     });
 }
@@ -81,6 +87,7 @@ fn spawn_quad(
 #[uuid = "90634fdb-f9e1-41b9-85b9-fc4d2979cd09"]
 struct BvhMaterial {
     pub color: Color,
+    pub mouse: Vec2,
 }
 
 #[derive(Clone)]

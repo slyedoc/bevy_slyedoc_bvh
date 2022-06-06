@@ -54,7 +54,6 @@ impl Default for CameraController {
             pitch: 0.0,
             yaw:  0.0,
             velocity: Vec3::ZERO,
-
             position_smoothness: 1.0,
             rotation_smoothness: 100.0,
         }
@@ -81,91 +80,93 @@ fn update_camera_controller(
     mut windows: ResMut<Windows>,
 ) {
     let dt = time.delta_seconds();
-    let window = windows.get_primary_mut().unwrap();
-
-    for (mut transform, mut controller) in query.iter_mut() {
-        if !controller.enabled {
-            continue;
-        }
-
-        // Handle key input
-        let mut axis_input = Vec3::ZERO;
-        if key_input.pressed(controller.key_forward) {
-            axis_input.z += 1.0;
-        }
-        if key_input.pressed(controller.key_back) {
-            axis_input.z -= 1.0;
-        }
-        if key_input.pressed(controller.key_right) {
-            axis_input.x += 1.0;
-        }
-        if key_input.pressed(controller.key_left) {
-            axis_input.x -= 1.0;
-        }
-        if key_input.pressed(controller.key_up) {
-            axis_input.y += 1.0;
-        }
-        if key_input.pressed(controller.key_down) {
-            axis_input.y -= 1.0;
-        }
-
-        // Apply movement update
-        if axis_input != Vec3::ZERO {
-            let max_speed = if key_input.pressed(controller.key_run) {
-                controller.run_speed
+    if let Some(window) = windows.get_primary_mut() {
+        for (mut transform, mut controller) in query.iter_mut() {
+            if !controller.enabled {
+                continue;
+            }
+    
+            // Handle key input
+            let mut axis_input = Vec3::ZERO;
+            if key_input.pressed(controller.key_forward) {
+                axis_input.z += 1.0;
+            }
+            if key_input.pressed(controller.key_back) {
+                axis_input.z -= 1.0;
+            }
+            if key_input.pressed(controller.key_right) {
+                axis_input.x += 1.0;
+            }
+            if key_input.pressed(controller.key_left) {
+                axis_input.x -= 1.0;
+            }
+            if key_input.pressed(controller.key_up) {
+                axis_input.y += 1.0;
+            }
+            if key_input.pressed(controller.key_down) {
+                axis_input.y -= 1.0;
+            }
+    
+            // Apply movement update
+            if axis_input != Vec3::ZERO {
+                let max_speed = if key_input.pressed(controller.key_run) {
+                    controller.run_speed
+                } else {
+                    controller.walk_speed
+                };
+                controller.velocity = axis_input.normalize() * max_speed;
             } else {
-                controller.walk_speed
-            };
-            controller.velocity = axis_input.normalize() * max_speed;
-        } else {
-            let friction = controller.friction.clamp(0.0, 1.0);
-            controller.velocity *= 1.0 - friction;
-            if controller.velocity.length_squared() < 1e-6 {
-                controller.velocity = Vec3::ZERO;
+                let friction = controller.friction.clamp(0.0, 1.0);
+                controller.velocity *= 1.0 - friction;
+                if controller.velocity.length_squared() < 1e-6 {
+                    controller.velocity = Vec3::ZERO;
+                }
             }
-        }
-        let forward = transform.forward();
-        let right = transform.right();
-        transform.translation += controller.velocity.x * dt * right
-            + controller.velocity.y * dt * Vec3::Y
-            + controller.velocity.z * dt * forward;
-
-        // Handle mouse look on mouse button
-        let mut mouse_delta = Vec2::ZERO;
-        if mouse_input.pressed(controller.mouse_look) {
-            #[cfg(not(target="wasm32"))]
-            window.set_cursor_lock_mode(true);
-            window.set_cursor_visibility(false);
-        }
-        if mouse_input.just_released(controller.mouse_look) {
-            #[cfg(not(target="wasm32"))]
-            window.set_cursor_lock_mode(false);
-            window.set_cursor_visibility(true);
-        }
-        if mouse_input.pressed(controller.mouse_look) {
-            for mouse_event in mouse_events.iter() {
-                mouse_delta += mouse_event.delta;
+            let forward = transform.forward();
+            let right = transform.right();
+            transform.translation += controller.velocity.x * dt * right
+                + controller.velocity.y * dt * Vec3::Y
+                + controller.velocity.z * dt * forward;
+    
+            // Handle mouse look on mouse button
+            let mut mouse_delta = Vec2::ZERO;
+            if mouse_input.pressed(controller.mouse_look) {
+                #[cfg(not(target="wasm32"))]
+                window.set_cursor_lock_mode(true);
+                window.set_cursor_visibility(false);
             }
-        }
-
-        if mouse_delta != Vec2::ZERO {
-            // Apply look update
-            let (pitch, yaw) = (
-                (controller.pitch - mouse_delta.y * 0.5 * controller.sensitivity * dt).clamp(
-                    -0.99 * std::f32::consts::FRAC_PI_2,
-                    0.99 * std::f32::consts::FRAC_PI_2,
-                ),
-                controller.yaw - mouse_delta.x * controller.sensitivity * dt,
-            );
-
-            // Apply smoothing, code needs improvement
-            let target = Quat::from_euler(EulerRot::ZYX, 0.0, yaw, pitch);
-            transform.rotation = transform.rotation.lerp(target, 0.5);
-
-            controller.pitch = pitch;
-            controller.yaw = yaw;
+            if mouse_input.just_released(controller.mouse_look) {
+                #[cfg(not(target="wasm32"))]
+                window.set_cursor_lock_mode(false);
+                window.set_cursor_visibility(true);
+            }
+            if mouse_input.pressed(controller.mouse_look) {
+                for mouse_event in mouse_events.iter() {
+                    mouse_delta += mouse_event.delta;
+                }
+            }
+    
+            if mouse_delta != Vec2::ZERO {
+                // Apply look update
+                let (pitch, yaw) = (
+                    (controller.pitch - mouse_delta.y * 0.5 * controller.sensitivity * dt).clamp(
+                        -0.99 * std::f32::consts::FRAC_PI_2,
+                        0.99 * std::f32::consts::FRAC_PI_2,
+                    ),
+                    controller.yaw - mouse_delta.x * controller.sensitivity * dt,
+                );
+    
+                // Apply smoothing, code needs improvement
+                let target = Quat::from_euler(EulerRot::ZYX, 0.0, yaw, pitch);
+                transform.rotation = transform.rotation.lerp(target, 0.5);
+    
+                controller.pitch = pitch;
+                controller.yaw = yaw;
+            }
         }
     }
+
+    
 }
 
 // from https://docs.rs/bevy-inspector-egui/0.6.1/src/bevy_inspector_egui/impls/quat.rs.html
