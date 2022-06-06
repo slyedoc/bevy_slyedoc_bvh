@@ -2,7 +2,7 @@
 name = "bevy_slyedoc_bvh"
 version = "0.1.0"
 edition = "2021"
-exclude = ["assets/", ""]
+exclude = ["assets"]
 
 [lib]
 crate-type = ["lib"] 
