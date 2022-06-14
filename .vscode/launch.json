@@ -26,6 +26,43 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug example 'raytrace'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=raytrace",
+                    "--package=bevy_slyedoc_bvh"
+                ],
+                "filter": {
+                    "name": "raytrace",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'raytrace'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=raytrace",
+                    "--package=bevy_slyedoc_bvh"
+                ],
+                "filter": {
+                    "name": "raytrace",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug example 'sponza'",
             "cargo": {
                 "args": [
@@ -100,43 +137,6 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug example 'bmr_simple'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=bmr_simple",
-                    "--package=bevy_slyedoc_bvh"
-                ],
-                "filter": {
-                    "name": "bmr_simple",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'bmr_simple'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--example=bmr_simple",
-                    "--package=bevy_slyedoc_bvh"
-                ],
-                "filter": {
-                    "name": "bmr_simple",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
             "name": "Debug example 'clock_tower'",
             "cargo": {
                 "args": [
@@ -202,43 +202,6 @@
                 ],
                 "filter": {
                     "name": "main",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug example 'bmr_intersect'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=bmr_intersect",
-                    "--package=bevy_slyedoc_bvh"
-                ],
-                "filter": {
-                    "name": "bmr_intersect",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'bmr_intersect'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--example=bmr_intersect",
-                    "--package=bevy_slyedoc_bvh"
-                ],
-                "filter": {
-                    "name": "bmr_intersect",
                     "kind": "example"
                 }
             },
