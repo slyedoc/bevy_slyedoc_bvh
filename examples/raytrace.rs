@@ -3,6 +3,7 @@ mod helpers;
 use std::borrow::Cow;
 
 use bevy::{
+    math::vec3,
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -11,9 +12,9 @@ use bevy::{
         render_resource::*,
         renderer::{RenderContext, RenderDevice, RenderQueue},
         view::window,
-        RenderApp, RenderStage,
+        RenderApp, RenderStage, settings::WgpuSettings,
     },
-    window::{PresentMode, WindowResized},
+    window::{PresentMode, WindowResized}, asset::AssetLoader,
 };
 use bevy_slyedoc_bvh::prelude::*;
 use helpers::*;
@@ -22,6 +23,10 @@ const WORKGROUP_SIZE: u32 = 8;
 
 fn main() {
     App::new()
+        // .insert_resource(WgpuSettings {
+        //     //features: WgpuFeatures::default(),
+        //     ..default()
+        // })
         .insert_resource(WindowDescriptor {
             present_mode: PresentMode::Fifo,
             ..default()
@@ -42,7 +47,12 @@ fn main() {
 #[derive(Component)]
 struct RtSprite;
 
-fn setup(mut commands: Commands, mut image: Res<RtImage>, window: Res<WindowDescriptor>) {
+fn setup(
+    mut commands: Commands,
+    mut rt_image: Res<RtImageOut>,
+    mut rt_background: Res<RtBackground>,
+    window: Res<WindowDescriptor>,
+) {
     let size = UVec2::new(window.width as u32, window.height as u32);
 
     // create the image
@@ -52,40 +62,55 @@ fn setup(mut commands: Commands, mut image: Res<RtImage>, window: Res<WindowDesc
                 custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
                 ..default()
             },
-            texture: image.0.clone(),
+            texture: rt_image.0.clone(),
             ..default()
         })
         .insert(RtSprite);
-
     commands.spawn_bundle(Camera2dBundle::default());
+
+    // Hack to get texture into gpu_images
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            custom_size: Some(Vec2::new(300.0, 300.0)),
+            ..default()
+        },
+        texture: rt_background.0.clone(),
+        ..default()
+    });
 }
 
 fn resize_sprite(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
     mut sprite_query: Query<(&mut Sprite), With<RtSprite>>,
-    mut rt_image: ResMut<RtImage>,
+    mut rt_image: ResMut<RtImageOut>,
     mut resize_event: EventReader<WindowResized>,
 ) {
     for resize in resize_event.iter() {
-        info!("resize {:?}", resize);
+        //info!("resize {:?}", resize);
         let mut sprite = sprite_query.single_mut();
-
         sprite.custom_size = Some(Vec2::new(resize.width, resize.height));
     }
 }
 
+// TODO: move this to lib, here for testing
 pub struct RaytracePlugin;
 
 impl Plugin for RaytracePlugin {
     fn build(&self, app: &mut App) {
         // Extract the raytrace image resource from the main world into the render world
         // for operation on by the compute shader and display on the sprite.
-        app.init_resource::<RtSettings>() 
-            .init_resource::<RtImage>()                       
-            .add_plugin(ExtractResourcePlugin::<RtImage>::default())
+        app.init_resource::<RtSettings>()
+            .init_resource::<RtImageOut>()            
+            .init_resource::<RtBackground>()     
+            .init_resource::<RtCamera>()
+            // .add_startup_system_to_stage(StartupStage::PreStartup, load_background)
+            .add_plugin(ExtractResourcePlugin::<RtImageOut>::default())
+            .add_plugin(ExtractResourcePlugin::<RtBackground>::default())
+            .add_plugin(ExtractResourcePlugin::<RtCamera>::default())
             .add_plugin(ExtractResourcePlugin::<RtSettings>::default())
-            .add_system(Self::resize_window);
+            .add_system(Self::resize_window)
+            .add_system(background_loaded);
 
         let render_device = app.world.resource::<RenderDevice>();
 
@@ -103,10 +128,9 @@ impl Plugin for RaytracePlugin {
 }
 
 impl RaytracePlugin {
-
     fn resize_window(
         mut rt_settings: ResMut<RtSettings>,
-        mut rt_image: ResMut<RtImage>,
+        mut rt_image: ResMut<RtImageOut>,
         mut images: ResMut<Assets<Image>>,
         mut resize_event: EventReader<WindowResized>,
     ) {
@@ -134,27 +158,57 @@ impl RaytracePlugin {
         }
     }
 
+    fn extract_camera(commands: &mut Commands, query: Query<(&Transform), With<Camera3d>>) {
+        todo!();
+    }
+
+    // TODO: reuse buffers, for now each frame a new one is created
+    // having hard enough time as it is
     fn queue_bind_group(
         mut commands: Commands,
-        settings: Res<RtSettings>,
+        render_device: Res<RenderDevice>,
         pipeline: Res<RtPipeline>,
         gpu_images: Res<RenderAssets<Image>>,
-        raytrace_image: Res<RtImage>,
-        render_device: Res<RenderDevice>,
+        rt_image: Res<RtImageOut>,
+        rt_background: Res<RtBackground>,
+        settings: Res<RtSettings>,
+        camera: Res<RtCamera>,
     ) {
-         // image
-        let view = &gpu_images[&raytrace_image.0];
+        // output image
+        let image_view = &gpu_images[&rt_image.0];
+        // background image
+        let background = gpu_images.get(&rt_background.0);
+        if background.is_none() {
+            warn!("background image not found");
+            return;
+        }
+        let background_view = &gpu_images[&rt_background.0];
 
         // settings
-        let byte_buffer = [0u8; RtSettings::SIZE.get() as usize];
-        let mut settings_buffer = encase::UniformBuffer::new(byte_buffer);
-        settings_buffer.write(&settings.into_inner()).unwrap();
+        let settings_buffer = {
+            let byte_buffer = [0u8; RtSettings::SIZE.get() as usize];
+            let mut encase_settings_buffer = encase::UniformBuffer::new(byte_buffer);
+            encase_settings_buffer
+                .write(&settings.into_inner())
+                .unwrap();
+            render_device.create_buffer_with_data(&BufferInitDescriptor {
+                label: Some("rt settings uniform buffer"),
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+                contents: encase_settings_buffer.as_ref(),
+            })
+        };
 
-        let settings_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("rt settings uniform buffer"),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            contents: settings_buffer.as_ref(),
-        });
+        // camera
+        let camera_buffer = {
+            let byte_buffer = [0u8; RtCamera::SIZE.get() as usize];
+            let mut buffer = encase::UniformBuffer::new(byte_buffer);
+            buffer.write(&camera.into_inner()).unwrap();
+            render_device.create_buffer_with_data(&BufferInitDescriptor {
+                label: Some("rt camera uniform buffer"),
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+                contents: buffer.as_ref(),
+            })
+        };
 
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             label: None,
@@ -162,18 +216,47 @@ impl RaytracePlugin {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&view.texture_view),
+                    resource: BindingResource::TextureView(&image_view.texture_view),
                 },
                 BindGroupEntry {
                     binding: 1,
+                    resource: camera_buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 2,
                     resource: settings_buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::TextureView(&background_view.texture_view),
                 },
             ],
         });
+
         commands.insert_resource(RtSettingsGpu {
             settings_buffer,
             bind_group,
         });
+    }
+}
+
+#[derive(ShaderType, Clone, ExtractResource)]
+struct RtCamera {
+    origin: Vec3,
+    p0: Vec3,
+    p1: Vec3,
+    p2: Vec3,
+}
+
+impl Default for RtCamera {
+    fn default() -> Self {
+        RtCamera {
+            // TODO: bases this on the 3d camera
+            origin: vec3(0.0, 0.0, -6.5),
+            p0: vec3(-1.0, 1.0, 2.0),
+            p1: vec3(1.0, 1.0, 2.0),
+            p2: vec3(-1.0, -1.0, 2.0),
+        }
     }
 }
 
@@ -190,9 +273,9 @@ impl FromWorld for RtSettings {
     }
 }
 #[derive(Clone, Deref, ExtractResource)]
-struct RtImage(Handle<Image>);
+struct RtImageOut(Handle<Image>);
 
-impl FromWorld for RtImage {
+impl FromWorld for RtImageOut {
     fn from_world(world: &mut World) -> Self {
         let settings = world.resource::<RtSettings>();
         let mut image = Image::new_fill(
@@ -210,9 +293,81 @@ impl FromWorld for RtImage {
             | TextureUsages::TEXTURE_BINDING;
         let mut images = world.resource_mut::<Assets<Image>>();
         let handle = images.add(image);
-        RtImage(handle)
+        RtImageOut(handle)
     }
 }
+
+
+fn background_loaded(
+    mut commands: Commands,
+    server: Res<AssetServer>,
+    images: Res<Assets<Image>>,
+    bg: Res<RtBackground>,
+) {
+    use bevy::asset::LoadState;
+
+    let handle = bg.0.clone_untyped();
+    match server.get_load_state(handle) {
+        LoadState::Failed => {
+            // one of our assets had an error
+            //warn!("background failed")
+        }
+        LoadState::Loaded => {
+            // all assets are now ready
+            info!("background loaded");
+            let img = images.get(&bg.0).unwrap();
+            info!(" {:?}", img.texture_descriptor);
+            // this might be a good place to transition into your in-game state
+
+            // remove the resource to drop the tracking handles
+                    // (note: if you don't have any other handles to the assets
+            // elsewhere, they will get unloaded after this)
+        }
+        LoadState::NotLoaded => {
+            // one of our assets is still loading
+            //info!("background not loaded");
+        },
+        LoadState::Loading => {
+            //info!("background loading");
+        },
+        LoadState::Unloaded => {
+            //info!("background unloaded");
+        },
+        
+    }
+  
+}
+#[derive(Clone, Deref, ExtractResource)]
+struct RtBackground(Handle<Image>);
+
+impl FromWorld for RtBackground {
+    fn from_world(world: &mut World) -> Self {
+        let settings = world.resource::<RtSettings>();
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: settings.size.x,
+                height: settings.size.y,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[100, 100, 100, 255],
+            TextureFormat::Rgba8Unorm,
+        );
+        image.texture_descriptor.usage = TextureUsages::COPY_DST
+            | TextureUsages::STORAGE_BINDING
+            | TextureUsages::TEXTURE_BINDING;
+
+        let mut images = world.resource_mut::<Assets<Image>>();
+        let handle = images.add(image);
+        RtBackground(handle)
+
+        // let images = world.resource::<Assets<Image>>();
+        // let asset_server = world.resource_mut::<AssetServer>();
+        // let handle: Handle<Image> = asset_server.load("images/awesome.png");
+        // RtBackground(handle)
+    }
+}
+
 struct RtSettingsGpu {
     settings_buffer: Buffer,
     bind_group: BindGroup,
@@ -248,7 +403,27 @@ impl FromWorld for RtPipeline {
                             ty: BindingType::Buffer {
                                 ty: BufferBindingType::Uniform,
                                 has_dynamic_offset: false,
-                                min_binding_size: Some(RtSettings::min_size()),                                
+                                min_binding_size: Some(RtCamera::min_size()),
+                            },
+                            count: None,
+                        },
+                        BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: ShaderStages::COMPUTE,
+                            ty: BindingType::Buffer {
+                                ty: BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: Some(RtSettings::min_size()),
+                            },
+                            count: None,
+                        },
+                        BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: ShaderStages::COMPUTE,
+                            ty: BindingType::StorageTexture {
+                                access: StorageTextureAccess::ReadOnly,
+                                format: TextureFormat::Rgba8Unorm,
+                                view_dimension: TextureViewDimension::D2,
                             },
                             count: None,
                         },
@@ -332,7 +507,11 @@ impl render_graph::Node for RtNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
-        let rt_bind_group = &world.resource::<RtSettingsGpu>().bind_group;
+        let settings = world.get_resource::<RtSettingsGpu>();
+        if settings.is_none() {
+            return Ok(());
+        }
+        let rt_bind_group = &settings.unwrap().bind_group;
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = world.resource::<RtPipeline>();
         let rt_settings = world.resource::<RtSettings>();

@@ -77,13 +77,12 @@ pub fn load_enviroment(
 pub fn load_clock_tower(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     let clock = asset_server.load("models/clock-tower/scene.glb#Scene0");
     commands
-        .spawn_bundle(TransformBundle {
-            // scale it down so we can see it
-            local: Transform::from_xyz(0.0, 4.0, -10.0).with_scale(Vec3::splat(0.001)),
-            global: GlobalTransform::identity(),
-        })
-        .with_children(|parent| {
-            parent.spawn_scene(clock.clone());
+        .spawn_bundle(SceneBundle {
+            
+            transform: Transform::from_xyz(0.0, 4.0, -10.0)
+                .with_scale(Vec3::splat(0.001)), // scale it down so we can see it
+            scene: clock.clone(),
+            ..default()
         })
         .insert(Name::new("Clock Tower"))
         // This marker tells the BVH system to build nested children
@@ -95,12 +94,10 @@ pub fn load_clock_tower(mut commands: Commands, asset_server: ResMut<AssetServer
 pub fn load_sponza(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     let scene = asset_server.load("models/sponza/sponza.gltf#Scene0");
     commands
-        .spawn_bundle(TransformBundle {
-            local: Transform::from_xyz(0.0, 1.0, 0.0),
-            global: GlobalTransform::identity(),
-        })
-        .with_children(|parent| {
-            parent.spawn_scene(scene.clone());
+        .spawn_bundle(SceneBundle {
+            transform: Transform::from_xyz(0.0, 1.0, 0.0),            
+            scene: scene.clone(),
+            ..default()
         })
         .insert(Name::new("Clock Tower"))
         // This marker tells the BVH system to build nested children
