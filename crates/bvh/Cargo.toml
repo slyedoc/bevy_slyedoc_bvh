@@ -1,0 +1,15 @@
+[package]
+name = "bvh"
+version = "0.1.0"
+edition = "2021"
+exclude = ["assets"]
+
+[lib]
+crate-type = ["lib"] 
+
+[dependencies]
+#bevy =  { version = "0.7.0" }
+bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+rand = "0.8.5"
+rand_chacha = "0.3.1"
+rayon = "1.5.3"

@@ -1,7 +1,7 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{math::vec3, prelude::*};
-use bevy_slyedoc_bvh::prelude::*;
+use bvh::prelude::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use image::{Rgb, RgbImage};
 

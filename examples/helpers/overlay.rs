@@ -2,7 +2,7 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
-use bevy_slyedoc_bvh::BvhStats;
+use bvh::BvhStats;
 
 pub struct OverlayPlugin;
 

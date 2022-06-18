@@ -1,0 +1,13 @@
+[package]
+name = "raytrace"
+version = "0.1.0"
+edition = "2021"
+exclude = ["assets"]
+
+[lib]
+crate-type = ["lib"] 
+
+[dependencies]
+#bevy =  { version = "0.7.0" }
+bvh = { path = "../bvh" }
+bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }

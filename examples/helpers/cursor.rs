@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_slyedoc_bvh::prelude::*;
+use bvh::prelude::*;
 pub struct CursorPlugin;
 
 impl Plugin for CursorPlugin {

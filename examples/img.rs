@@ -4,7 +4,7 @@ use bevy::{
     math::{vec3, Quat, Vec3},
     prelude::{GlobalTransform},
 };
-use bevy_slyedoc_bvh::prelude::*;
+use bvh::prelude::*;
 use image::{Rgb, RgbImage};
 
 

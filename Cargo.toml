@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 exclude = ["assets"]
 
+[workspace]
+exclude = ["benches"]
+members = ["crates/*"]
+
 [lib]
 crate-type = ["lib"] 
 # This is here based on https://github.com/bheisler/criterion.rs/issues/193
@@ -32,10 +36,8 @@ save = [] # to test benchmark output
 #bevy =  { version = "0.7.0" }
 bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }
 #bevy-inspector-egui = { version = "0.11.0", features = [""] }
-rand = "0.8.5"
-rand_chacha = "0.3.1"
-# TODO: use bevy task pool
-rayon = "1.5.3"
+bvh =  { path = "crates/bvh"}
+raytrace =  { path = "crates/raytrace"}
 
 [dev-dependencies]
 tracing = "0.1.34"

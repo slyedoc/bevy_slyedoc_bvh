@@ -1,14 +1,16 @@
 #![allow(clippy::type_complexity)]
+use std::f32::consts::{PI, FRAC_PI_2};
+
 use bevy::{
     input::{mouse::MouseMotion, Input},
     prelude::*,
-    window::Windows,
+    window::Windows, transform::TransformSystem,
 };
 pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system_to_stage( CoreStage::PostUpdate, setup_camera_controller)
+        app.add_system_to_stage( CoreStage::PostUpdate, setup_camera_controller.after(TransformSystem::TransformPropagate))
             .add_system_to_stage( CoreStage::PostUpdate, update_camera_controller.after(setup_camera_controller));
     }
 }
@@ -39,7 +41,7 @@ impl Default for CameraController {
     fn default() -> Self {
         Self {
             enabled: true,
-            sensitivity: 0.5,
+            sensitivity: 0.08,
             key_forward: KeyCode::W,
             key_back: KeyCode::S,
             key_left: KeyCode::A,
@@ -61,23 +63,25 @@ impl Default for CameraController {
 }
 
 fn setup_camera_controller(
-    mut query: Query<(&Transform, &mut CameraController), (Added<CameraController>, With<Camera>)>,
+    mut query: Query<(&GlobalTransform, &mut CameraController), (Added<CameraController>, With<Camera>)>,
 ) {
     for (transform, mut controller) in query.iter_mut() {
         // TODO: pretty sure controller uses of pitch and yaw is flipped
-        let (pitch, yaw, _roll) = yaw_pitch_roll(transform.rotation);
+        let (yaw, pitch, _roll) = yaw_pitch_roll(transform.rotation);
         controller.pitch = pitch;
         controller.yaw = yaw;
+        info!("pitch: {}, yaw: {}", pitch, yaw);
     }
 }
 
 fn update_camera_controller(
     time: Res<Time>,
-    mut mouse_events: EventReader<MouseMotion>,
+    mut mouse_motion: EventReader<MouseMotion>,
     key_input: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
     mut windows: ResMut<Windows>,
+    
 ) {
     let dt = time.delta_seconds();
     if let Some(window) = windows.get_primary_mut() {
@@ -141,27 +145,26 @@ fn update_camera_controller(
                 window.set_cursor_visibility(true);
             }
             if mouse_input.pressed(controller.mouse_look) {
-                for mouse_event in mouse_events.iter() {
+                for mouse_event in mouse_motion.iter() {
                     mouse_delta += mouse_event.delta;
                 }
             }
     
             if mouse_delta != Vec2::ZERO {
+                
+                // TODO: This is a bit hacky, but it works for now, 
                 // Apply look update
                 let (pitch, yaw) = (
-                    (controller.pitch - mouse_delta.y * 0.5 * controller.sensitivity * dt).clamp(
-                        -0.99 * std::f32::consts::FRAC_PI_2,
-                        0.99 * std::f32::consts::FRAC_PI_2,
-                    ),
-                    controller.yaw - mouse_delta.x * controller.sensitivity * dt,
+                    (mouse_delta.y * controller.sensitivity).to_radians(),
+                    (mouse_delta.x * controller.sensitivity).to_radians(),
                 );
-    
-                // Apply smoothing, code needs improvement
-                let target = Quat::from_euler(EulerRot::ZYX, 0.0, yaw, pitch);
-                transform.rotation = transform.rotation.lerp(target, 0.5);
-    
-                controller.pitch = pitch;
-                controller.yaw = yaw;
+                                
+                controller.pitch = (controller.pitch - pitch).clamp(-FRAC_PI_2, FRAC_PI_2);
+                controller.yaw -= yaw;
+                transform.rotation = Quat::from_axis_angle(Vec3::Y, controller.yaw)
+                * Quat::from_axis_angle(Vec3::X, controller.pitch);
+                
+
             }
         }
     }
