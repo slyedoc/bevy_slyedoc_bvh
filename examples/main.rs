@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{math::vec3, prelude::*, window::PresentMode};
 //use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
-use bvh::prelude::*;
+use bevy_slyedoc_bvh::prelude::*;
 use helpers::*;
 
 fn main() {

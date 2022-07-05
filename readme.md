@@ -14,23 +14,23 @@ And of course bevy and its community.
 
 Any *production* bevy raytracing solution would most likely be based on [VK_KHR_ray_tracing_pipeline](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VK_KHR_ray_tracing_pipeline.html) assuming you want to take advantage of the latest GPU hardware.  That would require deep knowledge of vulkan, wgpu, and bevy.  This is not that project, not yet at least.
 
-How does that hardware help?
+How does that hardware help, in short:
 
 > RTX cards feature fixed-function "RT cores" that are designed to accelerate mathematical operations needed to simulate rays, such as bounding volume hierarchy traversal.  - [wikipedia](https://en.wikipedia.org/wiki/Nvidia_RTX#Ray_tracing)
 
-These cores speed up the BVH traversal, but the acceleration structure is computed on the cpu.  This project is an experiment on building the bvh natively in bevy, and then using it for things like mouse cursor to agent sensor.  Of coarse if you have a bvh, your going to try and raycast rendering with it. =-)
+These cores speed up the BVH traversal, but the acceleration structure is computed on the cpu.  This project is an experiment on building the bvh natively in bevy, and then using it for things like mouse cursor or an agent's sensors.  Of coarse if you have a bvh, you are going to try raytracing with it. =-)
 
 ## Overview
 
 This is broke up into 2 crates:
-- bvh: plugin produces a bvh bevy resource that can be use from any system.
+- bvh: plugin produces a bvh bevy resource that can be used from any system.
   - Has a cpu based camera for stress testing and debugging
   
-- raytrace: an attempt to send the bvh to a shader and rendering with it.  I am new to shaders and this is nowhere near ideal and I wouldn't copy anything from this if I was you.  
-
 ## Notes
 
-Currently, we are duplicating mesh data at the moment and rebuilding the bvh each frame.  Will add refit
+Currently, we are duplicating mesh data at the moment and rebuilding the bvh each frame. Will add refit back sometime.
 ## Other Resources
 
+- [Ray Tracing in One Weekend](https://raytracing.github.io/) How everyone gets started with raytracing anymore.
 - [NVIDIA Raytrace Tutoral](https://developer.nvidia.com/rtx/raytracing/vkray) This is c++ and for the vulkan extention, and it was pretty rough to get though
+- [Trace-Efficiency](https://www.nvidia.com/docs/IO/76976/HPG2009-Trace-Efficiency.pdf) Old NVidia paper exploring different ideas (Jacco Bikker tweet)

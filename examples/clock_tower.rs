@@ -1,6 +1,6 @@
 mod helpers;
 use bevy::{prelude::*, window::PresentMode};
-use bvh::prelude::*;
+use bevy_slyedoc_bvh::prelude::*;
 use helpers::*;
 
 // Example using BvhInitWithChildren for a scene load

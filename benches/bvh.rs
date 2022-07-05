@@ -1,7 +1,7 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{math::vec3, prelude::*};
-use bvh::prelude::*;
+use bevy_slyedoc_bvh::prelude::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use image::{Rgb, RgbImage};
 
@@ -66,7 +66,7 @@ fn tlas_intersection(criterion: &mut Criterion) {
                     }
                 }
                 #[cfg(feature = "save")]
-                img.save(format!("out/{}.png", name)).unwrap();
+                img.save(format!("target/{}.png", name)).unwrap();
 
                 black_box(img);
             });

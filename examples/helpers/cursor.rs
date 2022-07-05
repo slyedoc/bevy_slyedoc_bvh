@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bvh::prelude::*;
+use bevy_slyedoc_bvh::prelude::*;
 pub struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
@@ -39,18 +39,18 @@ fn load_cursor(
 
 fn move_cursor(
     windows: Res<Windows>,
-    camera_query: Query<(&GlobalTransform, &Camera), With<Camera3d>>,
+    camera_query: Query<(&GlobalTransform, &PerspectiveProjection)>,
     mut cusror_query: Query<(&mut Transform, &mut Visibility), With<Cursor>>,
     tlas: Res<Tlas>,
 ) {
     if let Some(window) = windows.get_primary() {
         if let Some(mouse_pos) = window.cursor_position() {
-            if let Ok((trans, cam)) = camera_query.get_single() {
+            if let Ok((trans, projection)) = camera_query.get_single() {
                 // get the cursor
                 let (mut cursor_trans, mut cursor_vis) = cusror_query.single_mut();
 
                 // create a ray
-                let mut ray = Ray::from_screenspace(mouse_pos, window, cam, trans);
+                let mut ray = Ray::from_screenspace(mouse_pos, window, projection, trans);
 
                 // test ray agaist tlas and see if we hit
                 if let Some(hit) = ray.intersect_tlas(&tlas) {

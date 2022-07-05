@@ -2,7 +2,7 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
-use bvh::BvhStats;
+use bevy_slyedoc_bvh::BvhStats;
 
 pub struct OverlayPlugin;
 
@@ -38,7 +38,7 @@ fn setup_overlay(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
                 position_type: PositionType::Absolute,
-                position: UiRect::<Val> {
+                position: Rect::<Val> {
                     bottom: Val::Px(10.0),
                     right: Val::Px(10.0),
                     ..Default::default()
@@ -77,7 +77,7 @@ fn setup_overlay(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             style: Style {
                 align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
-                position: UiRect::<Val> {
+                position: Rect::<Val> {
                     bottom: Val::Px(50.0),
                     left: Val::Px(10.0),
                     ..Default::default()
@@ -117,7 +117,7 @@ fn setup_overlay(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             style: Style {
                 align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
-                position: UiRect::<Val> {
+                position: Rect::<Val> {
                     bottom: Val::Px(100.0),
                     left: Val::Px(10.0),
                     ..Default::default()
@@ -155,7 +155,7 @@ fn setup_overlay(mut commands: Commands, asset_server: ResMut<AssetServer>) {
         .spawn_bundle(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                position: UiRect::<Val> {
+                position: Rect::<Val> {
                     left: Val::Px(10.0),
                     bottom: Val::Px(10.0),
                     ..Default::default()

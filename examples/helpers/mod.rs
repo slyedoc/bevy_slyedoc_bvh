@@ -1,16 +1,14 @@
-mod camera_controller;
 mod cursor;
 mod exit;
 mod overlay;
 
 use bevy::prelude::*;
 //use bevy_inspector_egui::{WorldInspectorParams, WorldInspectorPlugin};
-use bvh::{BvhInit, BvhInitWithChildren};
-pub use camera_controller::*;
+use bevy_slyedoc_bvh::{BvhInit, BvhInitWithChildren, prelude::BvhCamera};
 pub use cursor::*;
 pub use exit::*;
 pub use overlay::*;
-
+use sly_camera_controller::{CameraControllerPlugin, CameraController};
 
 pub struct HelperPlugin;
 
@@ -28,7 +26,7 @@ impl Plugin for HelperPlugin {
             .add_plugin(ExitPlugin)
             // Simple 3d cursor to test bvh
             .add_plugin(CursorPlugin);
-            //.add_system(HelperPlugin::toggle_inspector);
+        //.add_system(HelperPlugin::toggle_inspector);
     }
 }
 
@@ -77,12 +75,12 @@ pub fn load_enviroment(
 pub fn load_clock_tower(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     let clock = asset_server.load("models/clock-tower/scene.glb#Scene0");
     commands
-        .spawn_bundle(SceneBundle {
-            
-            transform: Transform::from_xyz(0.0, 4.0, -10.0)
-                .with_scale(Vec3::splat(0.001)), // scale it down so we can see it
-            scene: clock.clone(),
+        .spawn_bundle(TransformBundle {
+            local: Transform::from_xyz(0.0, 4.0, -10.0).with_scale(Vec3::splat(0.001)), // scale it down so we can see it
             ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn_scene(clock.clone());
         })
         .insert(Name::new("Clock Tower"))
         // This marker tells the BVH system to build nested children
@@ -94,10 +92,12 @@ pub fn load_clock_tower(mut commands: Commands, asset_server: ResMut<AssetServer
 pub fn load_sponza(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     let scene = asset_server.load("models/sponza/sponza.gltf#Scene0");
     commands
-        .spawn_bundle(SceneBundle {
-            transform: Transform::from_xyz(0.0, 1.0, 0.0),            
-            scene: scene.clone(),
+        .spawn_bundle(TransformBundle {
+            local: Transform::from_xyz(0.0, 1.0, 0.0),
             ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn_scene(scene.clone());
         })
         .insert(Name::new("Clock Tower"))
         // This marker tells the BVH system to build nested children
@@ -107,12 +107,12 @@ pub fn load_sponza(mut commands: Commands, asset_server: ResMut<AssetServer>) {
 
 #[allow(dead_code)]
 pub fn setup_cameras(mut commands: Commands) {
-    //commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(UiCameraBundle::default());
     commands
-        .spawn_bundle(Camera3dBundle {
+        .spawn_bundle(PerspectiveCameraBundle {
             transform: Transform::from_xyz(5.0, 2.0, -10.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         })
-        .insert(CameraController::default());
-        //.insert(BvhCamera::new(1024, 1024));
+        .insert(CameraController::default())
+        .insert(BvhCamera::new(512, 512));
 }
